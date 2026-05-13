@@ -389,40 +389,33 @@
     // STORY CONTROLS
     // -----------------------------
     function injectStoryOptions() {
-        const existing = document.getElementById('tmk-story-options');
-        const isVideo = /\/(video|photo)\/\d+/.test(location.pathname);
+        const existing = document.getElementById('tmk-story-options-v2');
+        const isStoryViewer = !!document.querySelector('#stories-player > div.css-1dux0b3 > button');
 
-        if (isVideo) {
+        if (!isStoryViewer) {
             if (existing) existing.remove();
             return;
         }
 
         if (existing) return;
 
-        const exitBtn = document.querySelector('button[aria-label="exit"]');
-        if (!exitBtn) return;
-
         const options = document.createElement('div');
-        options.id = 'tmk-story-options';
+        options.id = 'tmk-story-options-v2';
         Object.assign(options.style, {
             position: 'fixed',
             top: '4.5rem',
             right: '1rem',
             zIndex: 999999,
-            color: '#fff',
-            fontSize: '14px',
-            textAlign: 'right',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '5px 10px',
-            borderRadius: '4px'
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'center'
         });
 
-        const appendBtn = document.createElement('div');
-        appendBtn.textContent = 'Add Current URL to List';
-        appendBtn.style.cursor = 'pointer';
-        appendBtn.style.marginBottom = '5px';
-        appendBtn.style.textDecoration = 'underline';
-        appendBtn.onclick = () => {
+        const iconAppend = createClipboardIcon('tmk-story-append-icon');
+        iconAppend.title = 'Add Current URL to List (No Popup)';
+        // Redefine onclick to avoid notification
+        iconAppend.onclick = (e) => {
+            e.stopPropagation();
             const url = location.href.split('?')[0];
             const CLIPBOARD_KEY = 'tmk_internal_clipboard';
             const raw = localStorage.getItem(CLIPBOARD_KEY);
@@ -431,26 +424,25 @@
                 const merged = [...currentItems, url];
                 localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
                 navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
-                showNotification(`Added current story to list.\nTotal: ${merged.length}`, '#4ecdc4');
-            } else {
-                showNotification("URL already in list.", "#ff6b6b");
             }
         };
 
-        const clearCopyBtn = document.createElement('div');
-        clearCopyBtn.textContent = 'Clear List & Copy Current URL';
-        clearCopyBtn.style.cursor = 'pointer';
-        clearCopyBtn.style.textDecoration = 'underline';
-        clearCopyBtn.onclick = () => {
-            const url = location.href.split('?')[0];
-            const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-            localStorage.setItem(CLIPBOARD_KEY, JSON.stringify([url]));
-            navigator.clipboard.writeText(url).catch(() => {});
-            showNotification("Cleared list and copied current story.", "#4ecdc4");
+        const iconClear = createClipboardIcon('tmk-story-clear-icon');
+        iconClear.title = 'Clear List & Copy Current URL';
+        iconClear.style.color = '#ff4d4d';
+        iconClear.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm('Are you sure you want to clear the current list and copy this URL?')) {
+                const url = location.href.split('?')[0];
+                const CLIPBOARD_KEY = 'tmk_internal_clipboard';
+                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify([url]));
+                navigator.clipboard.writeText(url).catch(() => {});
+                showNotification("Cleared list and copied current story.", "#4ecdc4");
+            }
         };
 
-        options.appendChild(appendBtn);
-        options.appendChild(clearCopyBtn);
+        options.appendChild(iconAppend);
+        options.appendChild(iconClear);
         document.body.appendChild(options);
     }
 
@@ -502,28 +494,32 @@
     }
 
     function injectVideoClipboardIcon() {
-        const avatarTargetSelector = '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]';
-        const avatarTarget = document.querySelector(avatarTargetSelector);
-        const existingAvatarIcon = document.getElementById('tmk-video-clipboard-icon');
-
-        if (!avatarTarget) {
-            if (existingAvatarIcon) existingAvatarIcon.remove();
-        } else if (!existingAvatarIcon) {
-            const icon = createClipboardIcon('tmk-video-clipboard-icon');
-            icon.style.marginBottom = '12px';
-            avatarTarget.parentNode.insertBefore(icon, avatarTarget);
+        if (!location.pathname.includes('/video/')) {
+            const existing = document.getElementById('tmk-video-clipboard-icon-v2');
+            if (existing) existing.remove();
+            return;
         }
 
-        const actionTargetSelector = 'div[data-e2e="browse-follow"]';
-        const actionTarget = document.querySelector(actionTargetSelector);
-        const existingActionIcon = document.getElementById('tmk-video-clipboard-icon-actions');
+        const existing = document.getElementById('tmk-video-clipboard-icon-v2');
+        if (existing) return;
 
-        if (!actionTarget) {
-            if (existingActionIcon) existingActionIcon.remove();
-        } else if (!existingActionIcon) {
-            const icon = createClipboardIcon('tmk-video-clipboard-icon-actions');
-            icon.style.marginTop = '12px';
-            actionTarget.parentNode.insertBefore(icon, actionTarget.nextSibling);
+        const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
+        const icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
+        icon.style.marginLeft = '8px';
+        icon.style.display = 'inline-flex';
+        icon.style.verticalAlign = 'middle';
+
+        if (usernameTarget) {
+            usernameTarget.insertAdjacentElement('afterend', icon);
+        } else {
+            const fallbackTargetSelector = '#one-column-item-0 > div > section.css-11fh2ar-7937d88b--SectionActionBarContainer.e12arnib0 > div.css-1trz9p4-7937d88b--DivAvatarActionItemContainer.efqn7qw0';
+            const fallbackTarget = document.querySelector(fallbackTargetSelector);
+            if (fallbackTarget) {
+                icon.style.marginLeft = '0';
+                icon.style.marginBottom = '12px';
+                icon.style.display = 'flex';
+                fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
+            }
         }
     }
 

@@ -14,7 +14,7 @@
     },
     {
       "matches": ["https://www.tiktok.com/*"],
-      "js": ["tiktok_meta.js", "stagger_nav.js"]
+      "js": ["tiktok_meta.js", "stagger_nav.js", "tiktok_ui.js"]
     }
   ]
 }
