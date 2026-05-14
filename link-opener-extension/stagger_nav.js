@@ -503,47 +503,46 @@
             return;
         }
 
-        const existing = document.getElementById('tmk-video-clipboard-icon-v2');
-        if (existing) return;
-
         const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
-        const icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
+        const fallbackTargetSelector = '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]';
+        const fallbackTarget = document.querySelector(fallbackTargetSelector);
+
+        let icon = document.getElementById('tmk-video-clipboard-icon-v2');
+
+        if (icon) {
+            // Check if icon is in correct place
+            if (usernameTarget && icon.previousElementSibling === usernameTarget) return;
+            if (!usernameTarget && fallbackTarget && icon.nextElementSibling === fallbackTarget) return;
+            // Otherwise, remove and re-inject
+            icon.remove();
+        }
+
+        icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
         icon.style.marginLeft = '8px';
         icon.style.display = 'inline-flex';
         icon.style.verticalAlign = 'middle';
 
         if (usernameTarget) {
             usernameTarget.insertAdjacentElement('afterend', icon);
-        } else {
-            const fallbackTargetSelector = '#one-column-item-0 > div > section.css-11fh2ar-7937d88b--SectionActionBarContainer.e12arnib0 > div.css-1trz9p4-7937d88b--DivAvatarActionItemContainer.efqn7qw0';
-            const fallbackTarget = document.querySelector(fallbackTargetSelector);
-            if (fallbackTarget) {
-                icon.style.marginLeft = '0';
-                icon.style.marginBottom = '12px';
-                icon.style.display = 'flex';
-                fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
-            }
+        } else if (fallbackTarget) {
+            icon.style.marginLeft = '0';
+            icon.style.marginBottom = '12px';
+            icon.style.display = 'flex';
+            fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
         }
     }
 
     const appObserver = new MutationObserver(() => {
-        if (!isContextValid()) {
-            appObserver.disconnect();
-            return;
-        }
         injectStoryOptions();
         injectVideoClipboardIcon();
     });
     appObserver.observe(document.body, { childList: true, subtree: true });
+
+    // Initial and periodic injection
     injectStoryOptions();
     injectVideoClipboardIcon();
-
-    // Failsafe polling for SPA transitions
-    const videoPoll = setInterval(() => {
-        if (!isContextValid()) {
-            clearInterval(videoPoll);
-            return;
-        }
+    setInterval(() => {
+        injectStoryOptions();
         injectVideoClipboardIcon();
     }, 1000);
 

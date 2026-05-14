@@ -1,8 +1,14 @@
 (async () => {
     'use strict';
 
-    const selectedLinks = new Set();
+    let selectedLinks = new Set();
     const CLIPBOARD_KEY = 'tmk_internal_clipboard';
+    let lastHandle = '';
+
+    function getProfileHandle() {
+        const match = location.pathname.match(/^\/(@[^/]+)/);
+        return match ? match[1] : null;
+    }
 
     function isProfilePage() {
         return location.pathname.startsWith('/@') &&
@@ -94,7 +100,7 @@
             box.id = 'tmk-multi-select-ui';
             Object.assign(box.style, {
                 position: 'fixed',
-                top: '160px', // Below the video count display if it exists
+                top: '160px',
                 right: '20px',
                 padding: '10px 20px',
                 background: 'rgba(0,0,0,0.75)',
@@ -164,6 +170,13 @@
     }
 
     function injectCheckboxes() {
+        const handle = getProfileHandle();
+        if (handle !== lastHandle) {
+            lastHandle = handle;
+            selectedLinks.clear();
+            refreshMultiSelectUI();
+        }
+
         if (!isProfilePage()) {
             document.querySelectorAll('.tmk-custom-checkbox, .tmk-row-select-checkbox').forEach(el => el.remove());
             selectedLinks.clear();
@@ -173,21 +186,13 @@
 
         document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]').forEach(a => {
             const hasCheckboxes = a.querySelector('.tmk-custom-checkbox');
-            if (hasCheckboxes) {
-                // Already added and still in DOM
-                return;
-            }
+            if (hasCheckboxes) return;
 
-            // If we are here, checkboxes are missing (either new video or TikTok rerendered the item)
-            a.dataset.checkboxesAdded = "true";
             const href = a.href.split('?')[0];
-
-            // Ensure relative positioning for absolute children
             if (getComputedStyle(a).position === 'static') {
                 a.style.position = 'relative';
             }
 
-            // Individual checkbox (top-left)
             const leftWrapper = document.createElement('div');
             Object.assign(leftWrapper.style, {
                 position: 'absolute',
@@ -199,6 +204,7 @@
             cb.type = 'checkbox';
             cb.className = 'tmk-custom-checkbox';
             cb.style.transform = 'scale(2)';
+            cb.style.cursor = 'pointer';
             if (selectedLinks.has(href)) cb.checked = true;
 
             ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation()));
@@ -210,7 +216,6 @@
             leftWrapper.appendChild(cb);
             a.appendChild(leftWrapper);
 
-            // Row-select checkbox (top-right)
             const rightWrapper = document.createElement('div');
             Object.assign(rightWrapper.style, {
                 position: 'absolute',
@@ -222,6 +227,7 @@
             rowCb.type = 'checkbox';
             rowCb.className = 'tmk-row-select-checkbox';
             rowCb.style.transform = 'scale(2)';
+            rowCb.style.cursor = 'pointer';
             ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation()));
             rowCb.addEventListener('change', () => {
                 const currentTop = a.getBoundingClientRect().top;
@@ -248,7 +254,6 @@
             rightWrapper.appendChild(rowCb);
             a.appendChild(rightWrapper);
 
-            // Toggle on click
             if (!a._tmk_click_listener_added) {
                 a._tmk_click_listener_added = true;
                 a.addEventListener('click', e => {
@@ -284,5 +289,19 @@
         }
     }, true);
 
-    setInterval(injectCheckboxes, 2000);
+    const observer = new MutationObserver(() => {
+        injectCheckboxes();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Fallback polling for handle changes and SPA transitions
+    setInterval(() => {
+        const handle = getProfileHandle();
+        if (handle !== lastHandle) {
+            lastHandle = handle;
+            selectedLinks.clear();
+            refreshMultiSelectUI();
+        }
+        injectCheckboxes();
+    }, 1000);
 })();
