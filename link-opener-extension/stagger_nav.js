@@ -412,8 +412,7 @@
         });
 
         const iconAppend = createClipboardIcon('tmk-story-append-icon');
-        iconAppend.title = 'Add Current URL to List (No Popup)';
-        // Redefine onclick to avoid notification
+        iconAppend.title = 'Add Current URL to List';
         iconAppend.onclick = (e) => {
             e.stopPropagation();
             const url = location.href.split('?')[0];
@@ -424,6 +423,9 @@
                 const merged = [...currentItems, url];
                 localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
                 navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
+                showNotification(`Added current story to list.\nURL: ${url}\nTotal: ${merged.length}`, '#4ecdc4');
+            } else {
+                showNotification(`URL already in list.\nURL: ${url}\nTotal: ${currentItems.length}`, '#ff6b6b');
             }
         };
 
@@ -476,6 +478,7 @@
         icon.onmouseout = () => icon.style.opacity = '0.7';
 
         icon.onclick = (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const url = location.href.split('?')[0];
             const CLIPBOARD_KEY = 'tmk_internal_clipboard';

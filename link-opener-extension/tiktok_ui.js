@@ -172,7 +172,13 @@
         }
 
         document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]').forEach(a => {
-            if (a.dataset.checkboxesAdded) return;
+            const hasCheckboxes = a.querySelector('.tmk-custom-checkbox');
+            if (hasCheckboxes) {
+                // Already added and still in DOM
+                return;
+            }
+
+            // If we are here, checkboxes are missing (either new video or TikTok rerendered the item)
             a.dataset.checkboxesAdded = "true";
             const href = a.href.split('?')[0];
 
@@ -193,6 +199,8 @@
             cb.type = 'checkbox';
             cb.className = 'tmk-custom-checkbox';
             cb.style.transform = 'scale(2)';
+            if (selectedLinks.has(href)) cb.checked = true;
+
             ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation()));
             cb.addEventListener('change', () => {
                 if (cb.checked) selectedLinks.add(href);
@@ -241,14 +249,20 @@
             a.appendChild(rightWrapper);
 
             // Toggle on click
-            a.addEventListener('click', e => {
-                if (selectedLinks.size > 0) {
-                    if (a._tmk_leaving) return;
-                    e.preventDefault();
-                    cb.checked = !cb.checked;
-                    cb.dispatchEvent(new Event('change'));
-                }
-            });
+            if (!a._tmk_click_listener_added) {
+                a._tmk_click_listener_added = true;
+                a.addEventListener('click', e => {
+                    if (selectedLinks.size > 0) {
+                        if (a._tmk_leaving) return;
+                        const targetCb = a.querySelector('.tmk-custom-checkbox');
+                        if (targetCb && e.target !== targetCb && !targetCb.contains(e.target)) {
+                            e.preventDefault();
+                            targetCb.checked = !targetCb.checked;
+                            targetCb.dispatchEvent(new Event('change'));
+                        }
+                    }
+                });
+            }
         });
     }
 
