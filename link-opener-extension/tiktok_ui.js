@@ -13,7 +13,8 @@
     function isProfilePage() {
         return location.pathname.startsWith('/@') &&
                !location.pathname.includes('/video/') &&
-               !location.pathname.includes('/photo/');
+               !location.pathname.includes('/photo/') &&
+               !location.pathname.includes('/live');
     }
 
     function readClipboard() {
@@ -91,7 +92,7 @@
     function refreshMultiSelectUI() {
         try {
             let box = document.getElementById('tmk-multi-select-ui');
-            if (selectedLinks.size === 0) {
+            if (selectedLinks.size === 0 || !isProfilePage()) {
                 if (box) box.remove();
                 return;
             }
@@ -184,16 +185,28 @@
 
             if (!isProfilePage()) {
                 document.querySelectorAll('.tmk-custom-checkbox, .tmk-row-select-checkbox').forEach(el => el.remove());
-                selectedLinks.clear();
-                refreshMultiSelectUI();
+                if (selectedLinks.size > 0) {
+                    selectedLinks.clear();
+                    refreshMultiSelectUI();
+                }
                 return;
             }
 
             const links = document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
             links.forEach(a => {
-                if (a.querySelector('.tmk-custom-checkbox')) return;
-
+                const existingCb = a.querySelector('.tmk-custom-checkbox');
                 const href = a.href.split('?')[0];
+
+                if (existingCb) {
+                    // Sync state if TikTok reuse element
+                    if (selectedLinks.has(href)) {
+                        if (!existingCb.checked) existingCb.checked = true;
+                    } else {
+                        if (existingCb.checked) existingCb.checked = false;
+                    }
+                    return;
+                }
+
                 if (getComputedStyle(a).position === 'static') {
                     a.style.position = 'relative';
                 }
@@ -209,7 +222,7 @@
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.className = 'tmk-custom-checkbox';
-                cb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important;';
+                cb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
                 if (selectedLinks.has(href)) cb.checked = true;
 
                 ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
@@ -232,26 +245,25 @@
                 const rowCb = document.createElement('input');
                 rowCb.type = 'checkbox';
                 rowCb.className = 'tmk-row-select-checkbox';
-                rowCb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important;';
+                rowCb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
                 ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
                 rowCb.addEventListener('change', () => {
-                    const currentTop = a.getBoundingClientRect().top;
-                    const allContainers = document.querySelectorAll('[class*="-DivItemContainerV2"], .video-feed-item-wrapper, [data-e2e="user-post-item"]');
-                    const rowContainers = Array.from(allContainers).filter(cont => {
-                        const link = cont.querySelector('a[href*="/video/"], a[href*="/photo/"]');
-                        if (link) {
-                            const top = link.getBoundingClientRect().top;
-                            return Math.abs(top - currentTop) < 20;
-                        }
-                        return false;
-                    });
-                    rowContainers.forEach(cont => {
-                        const checkbox = cont.querySelector('.tmk-custom-checkbox');
-                        if (checkbox) {
-                            const linkHref = checkbox.closest('a').href.split('?')[0];
-                            checkbox.checked = rowCb.checked;
-                            if (rowCb.checked) selectedLinks.add(linkHref);
-                            else selectedLinks.delete(linkHref);
+                    const currentRect = a.getBoundingClientRect();
+                    const currentTop = currentRect.top + window.scrollY;
+
+                    const allLinks = document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
+                    allLinks.forEach(otherA => {
+                        const otherRect = otherA.getBoundingClientRect();
+                        const otherTop = otherRect.top + window.scrollY;
+
+                        if (Math.abs(otherTop - currentTop) < 30) { // Increased threshold for row detection
+                            const otherCb = otherA.querySelector('.tmk-custom-checkbox');
+                            if (otherCb) {
+                                const otherHref = otherA.href.split('?')[0];
+                                otherCb.checked = rowCb.checked;
+                                if (rowCb.checked) selectedLinks.add(otherHref);
+                                else selectedLinks.delete(otherHref);
+                            }
                         }
                     });
                     refreshMultiSelectUI();
@@ -262,7 +274,7 @@
                 if (!a._tmk_click_listener_added) {
                     a._tmk_click_listener_added = true;
                     a.addEventListener('click', e => {
-                        if (selectedLinks.size > 0) {
+                        if (isProfilePage() && selectedLinks.size > 0) {
                             const targetCb = a.querySelector('.tmk-custom-checkbox');
                             if (targetCb && e.target !== targetCb && !targetCb.contains(e.target)) {
                                 e.preventDefault();
@@ -285,10 +297,9 @@
             return;
         }
 
-        // Leave confirmation
         window.addEventListener('click', e => {
             const anchor = e.target.closest('a');
-            if (anchor && selectedLinks.size > 0) {
+            if (anchor && isProfilePage() && selectedLinks.size > 0) {
                 const href = anchor.getAttribute('href');
                 if (!href || href === '#' || href.startsWith('javascript:')) return;
                 if (anchor.closest('#tmk-multi-select-ui')) return;

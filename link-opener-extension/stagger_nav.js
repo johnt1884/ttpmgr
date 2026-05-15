@@ -383,63 +383,67 @@
     // STORY CONTROLS
     // -----------------------------
     function injectStoryOptions() {
-        const existing = document.getElementById('tmk-story-options-v2');
-        const isStoryViewer = !!document.querySelector('#stories-player > div.css-1dux0b3 > button');
+        try {
+            const existing = document.getElementById('tmk-story-options-v2');
+            const isStoryViewer = !!document.querySelector('#stories-player > div.css-1dux0b3 > button');
 
-        if (!isStoryViewer) {
-            if (existing) existing.remove();
-            return;
-        }
-
-        if (existing) return;
-
-        const options = document.createElement('div');
-        options.id = 'tmk-story-options-v2';
-        Object.assign(options.style, {
-            position: 'fixed',
-            top: '4.5rem',
-            right: '1rem',
-            zIndex: 999999,
-            display: 'flex',
-            gap: '10px',
-            alignItems: 'center'
-        });
-
-        const iconAppend = createClipboardIcon('tmk-story-append-icon');
-        iconAppend.title = 'Add Current URL to List';
-        iconAppend.onclick = (e) => {
-            e.stopPropagation();
-            const url = location.href.split('?')[0];
-            const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-            const raw = localStorage.getItem(CLIPBOARD_KEY);
-            const currentItems = raw ? JSON.parse(raw) : [];
-            if (!currentItems.includes(url)) {
-                const merged = [...currentItems, url];
-                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
-                navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
-                showNotification(`Added current story to list.\nURL: ${url}\nTotal: ${merged.length}`, '#4ecdc4');
-            } else {
-                showNotification(`URL already in list.\nURL: ${url}\nTotal: ${currentItems.length}`, '#ff6b6b');
+            if (!isStoryViewer) {
+                if (existing) existing.remove();
+                return;
             }
-        };
 
-        const iconClear = createClipboardIcon('tmk-story-clear-icon');
-        iconClear.title = 'Clear List & Copy Current URL';
-        iconClear.style.color = '#ff4d4d';
-        iconClear.onclick = (e) => {
-            e.stopPropagation();
-            if (confirm('Are you sure you want to clear the current list and copy this URL?')) {
+            if (existing) return;
+
+            const options = document.createElement('div');
+            options.id = 'tmk-story-options-v2';
+            Object.assign(options.style, {
+                position: 'fixed',
+                top: '4.5rem',
+                right: '1rem',
+                zIndex: 999999,
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center'
+            });
+
+            const iconAppend = createClipboardIcon('tmk-story-append-icon');
+            iconAppend.title = 'Add Current URL to List';
+            iconAppend.onclick = (e) => {
+                e.stopPropagation();
                 const url = location.href.split('?')[0];
                 const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify([url]));
-                navigator.clipboard.writeText(url).catch(() => {});
-                showNotification("Cleared list and copied current story.", "#4ecdc4");
-            }
-        };
+                const raw = localStorage.getItem(CLIPBOARD_KEY);
+                const currentItems = raw ? JSON.parse(raw) : [];
+                if (!currentItems.includes(url)) {
+                    const merged = [...currentItems, url];
+                    localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
+                    navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
+                    showNotification(`Added current story to list.\nURL: ${url}\nTotal: ${merged.length}`, '#4ecdc4');
+                } else {
+                    showNotification(`URL already in list.\nURL: ${url}\nTotal: ${currentItems.length}`, '#ff6b6b');
+                }
+            };
 
-        options.appendChild(iconAppend);
-        options.appendChild(iconClear);
-        document.body.appendChild(options);
+            const iconClear = createClipboardIcon('tmk-story-clear-icon');
+            iconClear.title = 'Clear List & Copy Current URL';
+            iconClear.style.color = '#ff4d4d';
+            iconClear.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('Are you sure you want to clear the current list and copy this URL?')) {
+                    const url = location.href.split('?')[0];
+                    const CLIPBOARD_KEY = 'tmk_internal_clipboard';
+                    localStorage.setItem(CLIPBOARD_KEY, JSON.stringify([url]));
+                    navigator.clipboard.writeText(url).catch(() => {});
+                    showNotification("Cleared list and copied current story.", "#4ecdc4");
+                }
+            };
+
+            options.appendChild(iconAppend);
+            options.appendChild(iconClear);
+            document.body.appendChild(options);
+        } catch (e) {
+            console.error("Tiktok Stagger: injectStoryOptions failed", e);
+        }
     }
 
     // -----------------------------
@@ -492,47 +496,49 @@
     }
 
     function injectVideoClipboardIcon() {
-        if (!location.pathname.includes('/video/')) {
-            const existing = document.getElementById('tmk-video-clipboard-icon-v2');
-            if (existing) existing.remove();
-            return;
-        }
+        try {
+            if (!location.pathname.includes('/video/')) {
+                const existing = document.getElementById('tmk-video-clipboard-icon-v2');
+                if (existing) existing.remove();
+                return;
+            }
 
-        const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
-        const fallbackTargetSelectors = [
-            '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]',
-            'div[class*="DivAvatarActionItemContainer"]',
-            'section[class*="SectionActionBarContainer"]'
-        ];
+            const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
+            const fallbackTargetSelectors = [
+                '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]',
+                'div[class*="DivAvatarActionItemContainer"]',
+                'section[class*="SectionActionBarContainer"]'
+            ];
 
-        let fallbackTarget = null;
-        for (const sel of fallbackTargetSelectors) {
-            fallbackTarget = document.querySelector(sel);
-            if (fallbackTarget) break;
-        }
+            let fallbackTarget = null;
+            for (const sel of fallbackTargetSelectors) {
+                fallbackTarget = document.querySelector(sel);
+                if (fallbackTarget) break;
+            }
 
-        let icon = document.getElementById('tmk-video-clipboard-icon-v2');
+            let icon = document.getElementById('tmk-video-clipboard-icon-v2');
 
-        if (icon) {
-            if (usernameTarget && icon.previousElementSibling === usernameTarget) return;
-            if (!usernameTarget && fallbackTarget && (icon.nextElementSibling === fallbackTarget || icon.parentElement === fallbackTarget.parentElement)) return;
-            icon.remove();
-        }
+            if (icon) {
+                if (usernameTarget && icon.previousElementSibling === usernameTarget) return;
+                if (!usernameTarget && fallbackTarget && (icon.nextElementSibling === fallbackTarget || icon.parentElement === fallbackTarget.parentElement)) return;
+                icon.remove();
+            }
 
-        icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
-        icon.style.marginLeft = '8px';
-        icon.style.display = 'inline-flex';
-        icon.style.verticalAlign = 'middle';
+            icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
+            icon.style.marginLeft = '8px';
+            icon.style.display = 'inline-flex';
+            icon.style.verticalAlign = 'middle';
 
-        if (usernameTarget) {
-            // Check if we are inside an <a> that might navigate. TikTok often wraps this area.
-            // We want to be outside any primary link if possible, or prevent default on the icon.
-            usernameTarget.insertAdjacentElement('afterend', icon);
-        } else if (fallbackTarget) {
-            icon.style.marginLeft = '0';
-            icon.style.marginBottom = '12px';
-            icon.style.display = 'flex';
-            fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
+            if (usernameTarget) {
+                usernameTarget.insertAdjacentElement('afterend', icon);
+            } else if (fallbackTarget) {
+                icon.style.marginLeft = '0';
+                icon.style.marginBottom = '12px';
+                icon.style.display = 'flex';
+                fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
+            }
+        } catch (e) {
+            console.error("Tiktok Stagger: injectVideoClipboardIcon failed", e);
         }
     }
 
