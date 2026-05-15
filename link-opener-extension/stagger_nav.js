@@ -25,7 +25,7 @@
                 position: 'fixed',
                 bottom: '20px',
                 right: '20px',
-                zIndex: 999999,
+                zIndex: 1000000,
                 maxWidth: '300px',
                 fontSize: '14px',
                 lineHeight: '1.3'
@@ -101,7 +101,6 @@
             }
         }
 
-        // Poll for selection state since we can't easily listen to changes in another script's injected checkboxes
         const statePoll = setInterval(() => {
             if (!isContextValid()) {
                 clearInterval(statePoll);
@@ -148,7 +147,6 @@
 
         document.body.appendChild(btn);
 
-        // Pause/Play button
         const pauseBtn = document.createElement("button");
         pauseBtn.id = "stagger-pause-btn";
         pauseBtn.title = "Pause/Resume Automatic Link Progression";
@@ -203,7 +201,6 @@
 
         document.body.appendChild(pauseBtn);
 
-        // Fast Mode toggle button
         const fastBtn = document.createElement("button");
         fastBtn.id = "stagger-fast-btn";
         fastBtn.title = "Toggle Fast Mode";
@@ -265,14 +262,11 @@
 
         document.body.appendChild(fastBtn);
 
-        // Second yellow >> button (only if new videos present)
         const hasNewVideos = async () => {
             if (!isContextValid()) return false;
-            // 1. Check userscript element
             const newCountElement = document.getElementById('tt-thumb-meta__new-count');
             if (newCountElement && parseInt(newCountElement.textContent) > 0) return true;
 
-            // 2. Check baselines directly (robust fallback)
             const res = await chrome.storage.local.get("staggered_scan_baselines");
             const baselines = res.staggered_scan_baselines || {};
             const handleMatch = location.pathname.match(/^\/(@[^/]+)/);
@@ -362,7 +356,7 @@
                 clearInterval(checkNew);
             }
         }, 1000);
-        setTimeout(() => clearInterval(checkNew), 15000); // timeout after 15s
+        setTimeout(() => clearInterval(checkNew), 15000);
     }
 
     function createCounter(current, total) {
@@ -462,7 +456,8 @@
             justifyContent: 'center',
             color: '#fff',
             opacity: '0.7',
-            transition: 'opacity 0.2s'
+            transition: 'opacity 0.2s',
+            pointerEvents: 'auto'
         });
 
         icon.innerHTML = `
@@ -504,16 +499,23 @@
         }
 
         const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
-        const fallbackTargetSelector = '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]';
-        const fallbackTarget = document.querySelector(fallbackTargetSelector);
+        const fallbackTargetSelectors = [
+            '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]',
+            'div[class*="DivAvatarActionItemContainer"]',
+            'section[class*="SectionActionBarContainer"]'
+        ];
+
+        let fallbackTarget = null;
+        for (const sel of fallbackTargetSelectors) {
+            fallbackTarget = document.querySelector(sel);
+            if (fallbackTarget) break;
+        }
 
         let icon = document.getElementById('tmk-video-clipboard-icon-v2');
 
         if (icon) {
-            // Check if icon is in correct place
             if (usernameTarget && icon.previousElementSibling === usernameTarget) return;
-            if (!usernameTarget && fallbackTarget && icon.nextElementSibling === fallbackTarget) return;
-            // Otherwise, remove and re-inject
+            if (!usernameTarget && fallbackTarget && (icon.nextElementSibling === fallbackTarget || icon.parentElement === fallbackTarget.parentElement)) return;
             icon.remove();
         }
 
@@ -523,6 +525,8 @@
         icon.style.verticalAlign = 'middle';
 
         if (usernameTarget) {
+            // Check if we are inside an <a> that might navigate. TikTok often wraps this area.
+            // We want to be outside any primary link if possible, or prevent default on the icon.
             usernameTarget.insertAdjacentElement('afterend', icon);
         } else if (fallbackTarget) {
             icon.style.marginLeft = '0';
@@ -532,145 +536,148 @@
         }
     }
 
-    const appObserver = new MutationObserver(() => {
-        injectStoryOptions();
-        injectVideoClipboardIcon();
-    });
-    appObserver.observe(document.body, { childList: true, subtree: true });
-
-    // Initial and periodic injection
-    injectStoryOptions();
-    injectVideoClipboardIcon();
-    setInterval(() => {
-        injectStoryOptions();
-        injectVideoClipboardIcon();
-    }, 1000);
-
-    let response;
-    if (isContextValid()) {
-        try {
-            response = await chrome.runtime.sendMessage({ type: "CHECK_STAGGERED" });
-        } catch (e) {
-            console.warn("Stagger Nav: Failed to send initial CHECK_STAGGERED message", e);
-        }
-    }
-    
-    if (response && response.isStaggered) {
-        createForwardBtn();
-        if (response.total) {
-            createCounter(response.currentIndex, response.total);
+    function init() {
+        if (!document.body) {
+            setTimeout(init, 100);
+            return;
         }
 
-        // Check for pending notification
-        try {
-            const notify = localStorage.getItem('stagger_append_notify');
-            if (notify) {
-                const data = JSON.parse(notify);
-                localStorage.removeItem('stagger_append_notify');
-                showNotification(`Appended ${data.appended} link(s).\nTotal in memory: ${data.total}`, '#4ecdc4');
+        const appObserver = new MutationObserver(() => {
+            injectStoryOptions();
+            injectVideoClipboardIcon();
+        });
+        appObserver.observe(document.body, { childList: true, subtree: true });
+
+        injectStoryOptions();
+        injectVideoClipboardIcon();
+        setInterval(() => {
+            injectStoryOptions();
+            injectVideoClipboardIcon();
+        }, 1000);
+
+        (async () => {
+            let response;
+            if (isContextValid()) {
+                try {
+                    response = await chrome.runtime.sendMessage({ type: "CHECK_STAGGERED" });
+                } catch (e) {
+                    console.warn("Stagger Nav: Failed to send initial CHECK_STAGGERED message", e);
+                }
             }
-        } catch (e) {}
 
-        // -----------------------------
-        // AUTOMATION LOGIC
-        // -----------------------------
-        let pollInterval = null;
-
-        async function startPolling() {
-            if (pollInterval) clearInterval(pollInterval);
-            if (!isContextValid()) return;
-
-            const res = await chrome.storage.local.get(["automatic_load_enabled", "fast_mode_enabled", "staggered_scan_baselines"]);
-            if (!res.automatic_load_enabled) return;
-
-            console.log("Staggered Navigation: Automatic Load is enabled.");
-            
-            const baselines = res.staggered_scan_baselines || {};
-            const handleMatch = location.pathname.match(/^\/(@[^/]+)/);
-            const handle = handleMatch ? handleMatch[1] : null;
-            const baseline = handle ? (baselines[`tiktok_last_post:${handle}`] || 0) : Infinity;
-
-            let pollCount = 0;
-            const maxPolls = 10;
-
-            pollInterval = setInterval(() => {
-                if (!isContextValid()) {
-                    clearInterval(pollInterval);
-                    return;
-                }
-                pollCount++;
-                
-                // 1. Check for the userscript element as a primary signal
-                const newCountElement = document.getElementById('tt-thumb-meta__new-count');
-                if (newCountElement && parseInt(newCountElement.textContent) > 0) {
-                    console.log("Staggered Navigation: New videos found via userscript signal! Stopping automation.");
-                    clearInterval(pollInterval);
-                    chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
-                    return;
+            if (response && response.isStaggered) {
+                createForwardBtn();
+                if (response.total) {
+                    createCounter(response.currentIndex, response.total);
                 }
 
-                // 2. Direct scraping fallback to ensure robustness
-                const links = document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
-                let foundNew = false;
-                for (const a of links) {
-                    const postIdMatch = a.href.match(/\/(?:video|photo)\/(\d{10,})/);
-                    if (postIdMatch) {
-                        try {
-                            const ts = Number(BigInt(postIdMatch[1]) >> 32n) * 1000;
-                            if (ts > baseline) {
-                                foundNew = true;
-                                break;
+                try {
+                    const notify = localStorage.getItem('stagger_append_notify');
+                    if (notify) {
+                        const data = JSON.parse(notify);
+                        localStorage.removeItem('stagger_append_notify');
+                        showNotification(`Appended ${data.appended} link(s).\nTotal in memory: ${data.total}`, '#4ecdc4');
+                    }
+                } catch (e) {}
+
+                let pollInterval = null;
+
+                async function startPolling() {
+                    if (pollInterval) clearInterval(pollInterval);
+                    if (!isContextValid()) return;
+
+                    const res = await chrome.storage.local.get(["automatic_load_enabled", "fast_mode_enabled", "staggered_scan_baselines"]);
+                    if (!res.automatic_load_enabled) return;
+
+                    console.log("Staggered Navigation: Automatic Load is enabled.");
+
+                    const baselines = res.staggered_scan_baselines || {};
+                    const handleMatch = location.pathname.match(/^\/(@[^/]+)/);
+                    const handle = handleMatch ? handleMatch[1] : null;
+                    const baseline = handle ? (baselines[`tiktok_last_post:${handle}`] || 0) : Infinity;
+
+                    let pollCount = 0;
+                    const maxPolls = 10;
+
+                    pollInterval = setInterval(() => {
+                        if (!isContextValid()) {
+                            clearInterval(pollInterval);
+                            return;
+                        }
+                        pollCount++;
+
+                        const newCountElement = document.getElementById('tt-thumb-meta__new-count');
+                        if (newCountElement && parseInt(newCountElement.textContent) > 0) {
+                            console.log("Staggered Navigation: New videos found via userscript signal! Stopping automation.");
+                            clearInterval(pollInterval);
+                            chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
+                            return;
+                        }
+
+                        const links = document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
+                        let foundNew = false;
+                        for (const a of links) {
+                            const postIdMatch = a.href.match(/\/(?:video|photo)\/(\d{10,})/);
+                            if (postIdMatch) {
+                                try {
+                                    const ts = Number(BigInt(postIdMatch[1]) >> 32n) * 1000;
+                                    if (ts > baseline) {
+                                        foundNew = true;
+                                        break;
+                                    }
+                                } catch(e) {}
                             }
-                        } catch(e) {}
-                    }
-                }
-
-                if (foundNew) {
-                    console.log("Staggered Navigation: New videos found via direct scraping! Stopping automation.");
-                    clearInterval(pollInterval);
-                    if (isContextValid()) {
-                        chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
-                    }
-                    return;
-                }
-
-                // Continue polling if no videos yet or we haven't given the userscript long enough
-                const pollThreshold = res.fast_mode_enabled ? 1 : 3;
-                if (pollCount >= pollThreshold && document.querySelectorAll('[data-e2e="user-post-item"]').length > 0) {
-                    console.log(`Staggered Navigation: No new content found after ${pollThreshold}s of active content. Advancing.`);
-                    clearInterval(pollInterval);
-                    const delay = res.fast_mode_enabled ? 200 : Math.floor(Math.random() * 2000) + 1000;
-                    setTimeout(() => {
-                        if (isContextValid()) {
-                            chrome.runtime.sendMessage({ type: "NEXT_STAGGERED" });
                         }
-                    }, delay);
-                } else if (pollCount >= maxPolls) {
-                    console.log("Staggered Navigation: No new content found after timeout. Advancing.");
-                    clearInterval(pollInterval);
-                    const delay = res.fast_mode_enabled ? 200 : Math.floor(Math.random() * 2000) + 1000;
-                    setTimeout(() => {
-                        if (isContextValid()) {
-                            chrome.runtime.sendMessage({ type: "NEXT_STAGGERED" });
+
+                        if (foundNew) {
+                            console.log("Staggered Navigation: New videos found via direct scraping! Stopping automation.");
+                            clearInterval(pollInterval);
+                            if (isContextValid()) {
+                                chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
+                            }
+                            return;
                         }
-                    }, delay);
-                }
-            }, 1000);
-        }
 
-        startPolling();
-
-        if (isContextValid()) {
-            chrome.storage.onChanged.addListener((changes) => {
-                if (changes.automatic_load_enabled || changes.fast_mode_enabled) {
-                    if ((changes.automatic_load_enabled && changes.automatic_load_enabled.newValue) ||
-                        (changes.fast_mode_enabled)) {
-                        startPolling();
-                    } else {
-                        if (pollInterval) clearInterval(pollInterval);
-                    }
+                        const pollThreshold = res.fast_mode_enabled ? 1 : 3;
+                        if (pollCount >= pollThreshold && document.querySelectorAll('[data-e2e="user-post-item"]').length > 0) {
+                            console.log(`Staggered Navigation: No new content found after ${pollThreshold}s of active content. Advancing.`);
+                            clearInterval(pollInterval);
+                            const delay = res.fast_mode_enabled ? 200 : Math.floor(Math.random() * 2000) + 1000;
+                            setTimeout(() => {
+                                if (isContextValid()) {
+                                    chrome.runtime.sendMessage({ type: "NEXT_STAGGERED" });
+                                }
+                            }, delay);
+                        } else if (pollCount >= maxPolls) {
+                            console.log("Staggered Navigation: No new content found after timeout. Advancing.");
+                            clearInterval(pollInterval);
+                            const delay = res.fast_mode_enabled ? 200 : Math.floor(Math.random() * 2000) + 1000;
+                            setTimeout(() => {
+                                if (isContextValid()) {
+                                    chrome.runtime.sendMessage({ type: "NEXT_STAGGERED" });
+                                }
+                            }, delay);
+                        }
+                    }, 1000);
                 }
-            });
-        }
+
+                startPolling();
+
+                if (isContextValid()) {
+                    chrome.storage.onChanged.addListener((changes) => {
+                        if (changes.automatic_load_enabled || changes.fast_mode_enabled) {
+                            if ((changes.automatic_load_enabled && changes.automatic_load_enabled.newValue) ||
+                                (changes.fast_mode_enabled)) {
+                                startPolling();
+                            } else {
+                                if (pollInterval) clearInterval(pollInterval);
+                            }
+                        }
+                    });
+                }
+            }
+        })();
     }
+
+    init();
 })();

@@ -56,7 +56,7 @@
                 position: 'fixed',
                 bottom: '20px',
                 right: '20px',
-                zIndex: 999999,
+                zIndex: 1000000,
                 maxWidth: '300px',
                 fontSize: '14px',
                 lineHeight: '1.3'
@@ -89,219 +89,226 @@
     }
 
     function refreshMultiSelectUI() {
-        let box = document.getElementById('tmk-multi-select-ui');
-        if (selectedLinks.size === 0) {
-            if (box) box.remove();
-            return;
-        }
+        try {
+            let box = document.getElementById('tmk-multi-select-ui');
+            if (selectedLinks.size === 0) {
+                if (box) box.remove();
+                return;
+            }
 
-        if (!box) {
-            box = document.createElement('div');
-            box.id = 'tmk-multi-select-ui';
-            Object.assign(box.style, {
-                position: 'fixed',
-                top: '160px',
-                right: '20px',
-                padding: '10px 20px',
-                background: 'rgba(0,0,0,0.75)',
-                color: '#fff',
-                fontSize: '14px',
-                zIndex: 99999,
-                borderRadius: '8px',
-                boxShadow: '0 0 12px rgba(0,0,0,0.6)',
-                maxWidth: '300px',
-                lineHeight: '1.3',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '5px'
-            });
-            document.body.appendChild(box);
-        }
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'tmk-multi-select-ui';
+                Object.assign(box.style, {
+                    position: 'fixed',
+                    top: '160px',
+                    right: '20px',
+                    padding: '10px 20px',
+                    background: 'rgba(0,0,0,0.75)',
+                    color: '#fff',
+                    fontSize: '14px',
+                    zIndex: 99999,
+                    borderRadius: '8px',
+                    boxShadow: '0 0 12px rgba(0,0,0,0.6)',
+                    maxWidth: '300px',
+                    lineHeight: '1.3',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '5px'
+                });
+                document.body.appendChild(box);
+            }
 
-        box.innerHTML = '';
+            box.innerHTML = '';
 
-        const createLink = (text, color, onClick) => {
-            const a = document.createElement('a');
-            a.href = '#';
-            a.textContent = text;
-            a.style.color = color;
-            a.style.textDecoration = 'none';
-            a.onclick = (e) => {
-                e.preventDefault();
-                onClick();
+            const createLink = (text, color, onClick) => {
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = text;
+                a.style.color = color;
+                a.style.textDecoration = 'none';
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    onClick();
+                };
+                return a;
             };
-            return a;
-        };
 
-        box.appendChild(createLink('Copy Selected (Clear Memory First)', '#0ff', () => {
-            if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
-            const arr = Array.from(selectedLinks);
-            clearClipboard();
-            const updated = appendToClipboard(arr);
-            navigator.clipboard.writeText(updated.join('\n')).catch(() => {});
-            showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
-        }));
+            box.appendChild(createLink('Copy Selected (Clear Memory First)', '#0ff', () => {
+                if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
+                const arr = Array.from(selectedLinks);
+                clearClipboard();
+                const updated = appendToClipboard(arr);
+                navigator.clipboard.writeText(updated.join('\n')).catch(() => {});
+                showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
+            }));
 
-        box.appendChild(createLink('Copy Selected (Append)', '#ff0', () => {
-            const arr = Array.from(selectedLinks);
-            const updated = appendToClipboard(arr);
-            navigator.clipboard.writeText(updated.join('\n')).catch(() => {});
-            showNotification(`Appended ${arr.length} link(s).\nTotal in memory: ${updated.length}`, '#4ecdc4');
-        }));
+            box.appendChild(createLink('Copy Selected (Append)', '#ff0', () => {
+                const arr = Array.from(selectedLinks);
+                const updated = appendToClipboard(arr);
+                navigator.clipboard.writeText(updated.join('\n')).catch(() => {});
+                showNotification(`Appended ${arr.length} link(s).\nTotal in memory: ${updated.length}`, '#4ecdc4');
+            }));
 
-        box.appendChild(createLink('Clear Selection', '#f80', () => {
-            selectedLinks.clear();
-            document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
-            document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
-            refreshMultiSelectUI();
-            showNotification('Selection cleared!', '#95e1d3');
-        }));
+            box.appendChild(createLink('Clear Selection', '#f80', () => {
+                selectedLinks.clear();
+                document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
+                document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
+                refreshMultiSelectUI();
+                showNotification('Selection cleared!', '#95e1d3');
+            }));
 
-        box.appendChild(createLink('Clear Memory', '#f44', () => {
-            if (!confirm('Are you sure you want to clear memory?')) return;
-            clearClipboard();
-            showNotification('Internal clipboard cleared!', '#95e1d3');
-        }));
+            box.appendChild(createLink('Clear Memory', '#f44', () => {
+                if (!confirm('Are you sure you want to clear memory?')) return;
+                clearClipboard();
+                showNotification('Internal clipboard cleared!', '#95e1d3');
+            }));
 
-        const info = document.createElement('span');
-        info.style.fontSize = '12px';
-        info.textContent = `Selected: ${selectedLinks.size}`;
-        box.appendChild(info);
+            const info = document.createElement('span');
+            info.style.fontSize = '12px';
+            info.textContent = `Selected: ${selectedLinks.size}`;
+            box.appendChild(info);
+        } catch (e) {
+            console.error("Tiktok UI: refreshMultiSelectUI failed", e);
+        }
     }
 
     function injectCheckboxes() {
-        const handle = getProfileHandle();
-        if (handle !== lastHandle) {
-            lastHandle = handle;
-            selectedLinks.clear();
-            refreshMultiSelectUI();
-        }
+        try {
+            const handle = getProfileHandle();
+            if (handle !== lastHandle) {
+                lastHandle = handle;
+                selectedLinks.clear();
+                refreshMultiSelectUI();
+            }
 
-        if (!isProfilePage()) {
-            document.querySelectorAll('.tmk-custom-checkbox, .tmk-row-select-checkbox').forEach(el => el.remove());
-            selectedLinks.clear();
-            refreshMultiSelectUI();
+            if (!isProfilePage()) {
+                document.querySelectorAll('.tmk-custom-checkbox, .tmk-row-select-checkbox').forEach(el => el.remove());
+                selectedLinks.clear();
+                refreshMultiSelectUI();
+                return;
+            }
+
+            const links = document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
+            links.forEach(a => {
+                if (a.querySelector('.tmk-custom-checkbox')) return;
+
+                const href = a.href.split('?')[0];
+                if (getComputedStyle(a).position === 'static') {
+                    a.style.position = 'relative';
+                }
+
+                const leftWrapper = document.createElement('div');
+                Object.assign(leftWrapper.style, {
+                    position: 'absolute',
+                    top: '5px',
+                    left: '5px',
+                    zIndex: '10000',
+                    pointerEvents: 'auto'
+                });
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'tmk-custom-checkbox';
+                cb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important;';
+                if (selectedLinks.has(href)) cb.checked = true;
+
+                ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
+                cb.addEventListener('change', () => {
+                    if (cb.checked) selectedLinks.add(href);
+                    else selectedLinks.delete(href);
+                    refreshMultiSelectUI();
+                });
+                leftWrapper.appendChild(cb);
+                a.appendChild(leftWrapper);
+
+                const rightWrapper = document.createElement('div');
+                Object.assign(rightWrapper.style, {
+                    position: 'absolute',
+                    top: '5px',
+                    right: '5px',
+                    zIndex: '10000',
+                    pointerEvents: 'auto'
+                });
+                const rowCb = document.createElement('input');
+                rowCb.type = 'checkbox';
+                rowCb.className = 'tmk-row-select-checkbox';
+                rowCb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important;';
+                ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
+                rowCb.addEventListener('change', () => {
+                    const currentTop = a.getBoundingClientRect().top;
+                    const allContainers = document.querySelectorAll('[class*="-DivItemContainerV2"], .video-feed-item-wrapper, [data-e2e="user-post-item"]');
+                    const rowContainers = Array.from(allContainers).filter(cont => {
+                        const link = cont.querySelector('a[href*="/video/"], a[href*="/photo/"]');
+                        if (link) {
+                            const top = link.getBoundingClientRect().top;
+                            return Math.abs(top - currentTop) < 20;
+                        }
+                        return false;
+                    });
+                    rowContainers.forEach(cont => {
+                        const checkbox = cont.querySelector('.tmk-custom-checkbox');
+                        if (checkbox) {
+                            const linkHref = checkbox.closest('a').href.split('?')[0];
+                            checkbox.checked = rowCb.checked;
+                            if (rowCb.checked) selectedLinks.add(linkHref);
+                            else selectedLinks.delete(linkHref);
+                        }
+                    });
+                    refreshMultiSelectUI();
+                });
+                rightWrapper.appendChild(rowCb);
+                a.appendChild(rightWrapper);
+
+                if (!a._tmk_click_listener_added) {
+                    a._tmk_click_listener_added = true;
+                    a.addEventListener('click', e => {
+                        if (selectedLinks.size > 0) {
+                            const targetCb = a.querySelector('.tmk-custom-checkbox');
+                            if (targetCb && e.target !== targetCb && !targetCb.contains(e.target)) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                targetCb.checked = !targetCb.checked;
+                                targetCb.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    }, { capture: true });
+                }
+            });
+        } catch (e) {
+            console.error("Tiktok UI: injectCheckboxes failed", e);
+        }
+    }
+
+    function init() {
+        if (!document.body) {
+            setTimeout(init, 100);
             return;
         }
 
-        document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]').forEach(a => {
-            const hasCheckboxes = a.querySelector('.tmk-custom-checkbox');
-            if (hasCheckboxes) return;
+        // Leave confirmation
+        window.addEventListener('click', e => {
+            const anchor = e.target.closest('a');
+            if (anchor && selectedLinks.size > 0) {
+                const href = anchor.getAttribute('href');
+                if (!href || href === '#' || href.startsWith('javascript:')) return;
+                if (anchor.closest('#tmk-multi-select-ui')) return;
+                if (e.target.closest('.tmk-custom-checkbox, .tmk-row-select-checkbox')) return;
 
-            const href = a.href.split('?')[0];
-            if (getComputedStyle(a).position === 'static') {
-                a.style.position = 'relative';
+                if (!confirm('You have videos selected. Are you sure you want to leave this page?')) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
             }
+        }, true);
 
-            const leftWrapper = document.createElement('div');
-            Object.assign(leftWrapper.style, {
-                position: 'absolute',
-                top: '5px',
-                left: '5px',
-                zIndex: '10000'
-            });
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.className = 'tmk-custom-checkbox';
-            cb.style.transform = 'scale(2)';
-            cb.style.cursor = 'pointer';
-            if (selectedLinks.has(href)) cb.checked = true;
-
-            ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation()));
-            cb.addEventListener('change', () => {
-                if (cb.checked) selectedLinks.add(href);
-                else selectedLinks.delete(href);
-                refreshMultiSelectUI();
-            });
-            leftWrapper.appendChild(cb);
-            a.appendChild(leftWrapper);
-
-            const rightWrapper = document.createElement('div');
-            Object.assign(rightWrapper.style, {
-                position: 'absolute',
-                top: '5px',
-                right: '5px',
-                zIndex: '10000'
-            });
-            const rowCb = document.createElement('input');
-            rowCb.type = 'checkbox';
-            rowCb.className = 'tmk-row-select-checkbox';
-            rowCb.style.transform = 'scale(2)';
-            rowCb.style.cursor = 'pointer';
-            ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation()));
-            rowCb.addEventListener('change', () => {
-                const currentTop = a.getBoundingClientRect().top;
-                const allContainers = document.querySelectorAll('[class*="-DivItemContainerV2"], .video-feed-item-wrapper, [data-e2e="user-post-item"]');
-                const rowContainers = Array.from(allContainers).filter(cont => {
-                    const link = cont.querySelector('a[href*="/video/"], a[href*="/photo/"]');
-                    if (link) {
-                        const top = link.getBoundingClientRect().top;
-                        return Math.abs(top - currentTop) < 20;
-                    }
-                    return false;
-                });
-                rowContainers.forEach(cont => {
-                    const checkbox = cont.querySelector('.tmk-custom-checkbox');
-                    if (checkbox) {
-                        const linkHref = checkbox.closest('a').href.split('?')[0];
-                        checkbox.checked = rowCb.checked;
-                        if (rowCb.checked) selectedLinks.add(linkHref);
-                        else selectedLinks.delete(linkHref);
-                    }
-                });
-                refreshMultiSelectUI();
-            });
-            rightWrapper.appendChild(rowCb);
-            a.appendChild(rightWrapper);
-
-            if (!a._tmk_click_listener_added) {
-                a._tmk_click_listener_added = true;
-                a.addEventListener('click', e => {
-                    if (selectedLinks.size > 0) {
-                        if (a._tmk_leaving) return;
-                        const targetCb = a.querySelector('.tmk-custom-checkbox');
-                        if (targetCb && e.target !== targetCb && !targetCb.contains(e.target)) {
-                            e.preventDefault();
-                            targetCb.checked = !targetCb.checked;
-                            targetCb.dispatchEvent(new Event('change'));
-                        }
-                    }
-                });
-            }
+        const observer = new MutationObserver(() => {
+            injectCheckboxes();
         });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        setInterval(injectCheckboxes, 1000);
+        injectCheckboxes();
     }
 
-    // Leave confirmation
-    window.addEventListener('click', e => {
-        const anchor = e.target.closest('a');
-        if (anchor && selectedLinks.size > 0) {
-            const href = anchor.getAttribute('href');
-            if (!href || href === '#' || href.startsWith('javascript:')) return;
-            if (anchor.closest('#tmk-multi-select-ui')) return;
-            if (e.target.closest('.tmk-custom-checkbox, .tmk-row-select-checkbox')) return;
-
-            if (!confirm('You have videos selected. Are you sure you want to leave this page?')) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-            } else {
-                anchor._tmk_leaving = true;
-            }
-        }
-    }, true);
-
-    const observer = new MutationObserver(() => {
-        injectCheckboxes();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Fallback polling for handle changes and SPA transitions
-    setInterval(() => {
-        const handle = getProfileHandle();
-        if (handle !== lastHandle) {
-            lastHandle = handle;
-            selectedLinks.clear();
-            refreshMultiSelectUI();
-        }
-        injectCheckboxes();
-    }, 1000);
+    init();
 })();
