@@ -266,7 +266,12 @@ async function applySort(mode) {
     }
 
     const itemsWithDates = [];
-    const allListItems = document.querySelectorAll("li");
+
+    // Use a temporary container to extract all LI items from the original structure
+    // to ensure we always use the initial HTML order as the baseline.
+    const tempContainer = document.createElement("div");
+    originalStructure.forEach(node => tempContainer.appendChild(node.cloneNode(true)));
+    const allListItems = tempContainer.querySelectorAll("li");
     
     let globalIndex = 0;
     for (const li of allListItems) {
