@@ -23,7 +23,7 @@
             container = document.createElement('div');
             container.id = 'tmk-notification-container';
             Object.assign(container.style, {
-                position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000000,
+                position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
                 maxWidth: '300px', fontSize: '14px', lineHeight: '1.3'
             });
             document.body.appendChild(container);
@@ -89,6 +89,7 @@
         }
 
         const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
+        // Look for stable action bar container outside of re-rendered internals if possible
         const fallbackTarget = document.querySelector('div[class*="DivAvatarActionItemContainer"]') ||
                                document.querySelector('section[class*="SectionActionBarContainer"]');
 
@@ -98,18 +99,19 @@
         const desiredParent = usernameTarget ? usernameTarget.parentElement : (fallbackTarget ? fallbackTarget.parentElement : null);
 
         if (icon) {
-            if (icon.parentElement === desiredParent) return;
+            // Self-healing: if parent changed or detached, re-inject
+            if (icon.parentElement === desiredParent && document.body.contains(icon)) return;
             icon.remove();
         }
 
         icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
         if (usernameTarget) {
-            icon.style.marginLeft = '8px';
+            icon.style.marginLeft = '12px';
             icon.style.display = 'inline-flex';
             icon.style.verticalAlign = 'middle';
             usernameTarget.insertAdjacentElement('afterend', icon);
         } else if (fallbackTarget) {
-            icon.style.marginBottom = '12px';
+            icon.style.marginBottom = '15px';
             icon.style.display = 'flex';
             fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
         }
@@ -186,11 +188,12 @@
     }
 
     function createCounter(current, total) {
-        if (document.getElementById("stagger-counter")) {
-            document.getElementById("stagger-counter").textContent = `${String(current).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
+        let counter = document.getElementById("stagger-counter");
+        if (counter) {
+            counter.textContent = `${String(current).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
             return;
         }
-        const counter = document.createElement("div");
+        counter = document.createElement("div");
         counter.id = "stagger-counter";
         counter.textContent = `${String(current).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
         Object.assign(counter.style, {
@@ -203,7 +206,7 @@
 
     async function startStaggeredPolling() {
         if (pollInterval) clearInterval(pollInterval);
-        const res = await chrome.storage.local.get(["automatic_load_enabled", "fast_mode_enabled", "staggered_scan_baselines"]);
+        const res = await chrome.storage.local.get(["automatic_load_enabled", "fast_mode_enabled"]);
         if (!res.automatic_load_enabled) return;
 
         let pollCount = 0;
@@ -228,14 +231,25 @@
     function init() {
         if (!document.body) { setTimeout(init, 50); return; }
 
+        let pending = false;
         const observer = new MutationObserver(() => {
-            injectVideoClipboardIcon();
-            injectStoryOptions();
+            if (pending) return;
+            pending = true;
+            requestAnimationFrame(() => {
+                pending = false;
+                injectVideoClipboardIcon();
+                injectStoryOptions();
+            });
         });
         observer.observe(document.body, { childList: true, subtree: true });
 
         injectVideoClipboardIcon();
         injectStoryOptions();
+
+        setInterval(() => {
+            injectVideoClipboardIcon();
+            injectStoryOptions();
+        }, 1500);
 
         (async () => {
             const response = await safeSendMessage({ type: "CHECK_STAGGERED" });

@@ -1,13 +1,14 @@
 (async () => {
     'use strict';
 
-    // --- High Stability Controller Layer ---
+    // --- Hardened Controller State ---
     const selectedLinks = new Set();
     const processedNodes = new WeakSet();
     const CLIPBOARD_KEY = 'tmk_internal_clipboard';
     let lastHandle = '';
+    let lastUrl = location.href;
 
-    // --- State Management ---
+    // --- Selection & URL Helpers ---
     function getProfileHandle() {
         const match = location.pathname.match(/^\/(@[^/]+)/);
         return match ? match[1] : null;
@@ -21,6 +22,10 @@
     }
 
     function syncStateOnNavigation() {
+        const currentUrl = location.href;
+        if (currentUrl === lastUrl) return;
+        lastUrl = currentUrl;
+
         const handle = getProfileHandle();
         if (handle !== lastHandle) {
             lastHandle = handle;
@@ -29,206 +34,186 @@
         }
     }
 
-    // --- Centralized UI Management ---
+    // --- UI Persistence ---
     function showNotification(msg, color = '#fff', duration = 3000) {
         let container = document.getElementById('tmk-notification-container');
         if (!container) {
             container = document.createElement('div');
             container.id = 'tmk-notification-container';
             Object.assign(container.style, {
-                position: 'fixed',
-                bottom: '20px',
-                right: '20px',
-                zIndex: 2000000,
-                maxWidth: '300px',
-                fontSize: '14px',
-                lineHeight: '1.3'
+                position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
+                maxWidth: '300px', fontSize: '14px', lineHeight: '1.3'
             });
             document.body.appendChild(container);
         }
         const note = document.createElement('div');
         Object.assign(note.style, {
-            padding: '10px 15px',
-            background: 'rgba(0,0,0,0.85)',
-            color: color,
-            borderRadius: '6px',
-            marginBottom: '10px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            opacity: '0',
-            transform: 'translateY(20px)',
-            transition: 'opacity 0.3s ease, transform 0.3s ease'
+            padding: '10px 15px', background: 'rgba(0,0,0,0.85)', color: color,
+            borderRadius: '6px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            opacity: '0', transform: 'translateY(20px)', transition: 'opacity 0.3s ease, transform 0.3s ease'
         });
         note.textContent = msg;
         container.appendChild(note);
-        requestAnimationFrame(() => {
-            note.style.opacity = '1';
-            note.style.transform = 'translateY(0)';
-        });
+        requestAnimationFrame(() => { note.style.opacity = '1'; note.style.transform = 'translateY(0)'; });
         setTimeout(() => {
-            note.style.opacity = '0';
-            note.style.transform = 'translateY(20px)';
+            note.style.opacity = '0'; note.style.transform = 'translateY(20px)';
             setTimeout(() => note.remove(), 300);
         }, duration);
     }
 
     function refreshMultiSelectUI() {
-        let box = document.getElementById('tmk-multi-select-ui');
-        if (selectedLinks.size === 0 || !isProfilePage()) {
-            if (box) box.remove();
-            return;
-        }
+        try {
+            let box = document.getElementById('tmk-multi-select-ui');
+            if (selectedLinks.size === 0 || !isProfilePage()) {
+                if (box) box.remove();
+                return;
+            }
 
-        if (!box) {
-            box = document.createElement('div');
-            box.id = 'tmk-multi-select-ui';
-            Object.assign(box.style, {
-                position: 'fixed',
-                top: '160px',
-                right: '20px',
-                padding: '10px 20px',
-                background: 'rgba(0,0,0,0.75)',
-                color: '#fff',
-                fontSize: '14px',
-                zIndex: 99999,
-                borderRadius: '8px',
-                boxShadow: '0 0 12px rgba(0,0,0,0.6)',
-                maxWidth: '300px',
-                lineHeight: '1.3',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '5px'
-            });
-            document.body.appendChild(box);
-        }
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'tmk-multi-select-ui';
+                Object.assign(box.style, {
+                    position: 'fixed', top: '160px', right: '20px', padding: '10px 20px',
+                    background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '14px',
+                    zIndex: 99999, borderRadius: '8px', boxShadow: '0 0 12px rgba(0,0,0,0.6)',
+                    maxWidth: '300px', lineHeight: '1.3', display: 'flex', flexDirection: 'column', gap: '5px'
+                });
+                document.body.appendChild(box);
+            }
 
-        box.innerHTML = '';
-        const createLink = (text, color, onClick) => {
-            const a = document.createElement('a');
-            a.href = '#';
-            a.textContent = text;
-            a.style.color = color;
-            a.style.textDecoration = 'none';
-            a.onclick = (e) => { e.preventDefault(); onClick(); };
-            return a;
-        };
+            box.innerHTML = '';
+            const createLink = (text, color, onClick) => {
+                const a = document.createElement('a');
+                a.href = '#';
+                a.textContent = text;
+                a.style.color = color;
+                a.style.textDecoration = 'none';
+                a.onclick = (e) => { e.preventDefault(); onClick(); };
+                return a;
+            };
 
-        const updateSystemClipboard = (arr) => {
-            try {
+            const updateSystemClipboard = (arr) => {
                 localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(arr));
                 navigator.clipboard.writeText(arr.join('\n')).catch(() => {});
-            } catch (e) { console.error("Clipboard sync failed", e); }
-        };
+            };
 
-        box.appendChild(createLink('Copy Selected (Clear Memory First)', '#0ff', () => {
-            if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
-            const arr = Array.from(selectedLinks);
-            updateSystemClipboard(arr);
-            showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
-        }));
+            box.appendChild(createLink('Copy Selected (Clear Memory First)', '#0ff', () => {
+                if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
+                const arr = Array.from(selectedLinks);
+                updateSystemClipboard(arr);
+                showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
+            }));
 
-        box.appendChild(createLink('Copy Selected (Append)', '#ff0', () => {
-            const current = JSON.parse(localStorage.getItem(CLIPBOARD_KEY) || '[]');
-            const merged = Array.from(new Set([...current, ...selectedLinks]));
-            updateSystemClipboard(merged);
-            showNotification(`Appended ${selectedLinks.size} link(s).\nTotal in memory: ${merged.length}`, '#4ecdc4');
-        }));
+            box.appendChild(createLink('Copy Selected (Append)', '#ff0', () => {
+                const current = JSON.parse(localStorage.getItem(CLIPBOARD_KEY) || '[]');
+                const merged = Array.from(new Set([...current, ...selectedLinks]));
+                updateSystemClipboard(merged);
+                showNotification(`Appended ${selectedLinks.size} link(s).\nTotal in memory: ${merged.length}`, '#4ecdc4');
+            }));
 
-        box.appendChild(createLink('Clear Selection', '#f80', () => {
-            selectedLinks.clear();
-            document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
-            document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
-            refreshMultiSelectUI();
-            showNotification('Selection cleared!', '#95e1d3');
-        }));
+            box.appendChild(createLink('Clear Selection', '#f80', () => {
+                selectedLinks.clear();
+                document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
+                document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
+                refreshMultiSelectUI();
+                showNotification('Selection cleared!', '#95e1d3');
+            }));
 
-        box.appendChild(createLink('Clear Memory', '#f44', () => {
-            if (!confirm('Are you sure you want to clear memory?')) return;
-            localStorage.removeItem(CLIPBOARD_KEY);
-            showNotification('Internal clipboard cleared!', '#95e1d3');
-        }));
+            box.appendChild(createLink('Clear Memory', '#f44', () => {
+                if (!confirm('Are you sure you want to clear memory?')) return;
+                localStorage.removeItem(CLIPBOARD_KEY);
+                showNotification('Internal clipboard cleared!', '#95e1d3');
+            }));
 
-        const info = document.createElement('span');
-        info.style.fontSize = '12px';
-        info.textContent = `Selected: ${selectedLinks.size}`;
-        box.appendChild(info);
+            const info = document.createElement('span');
+            info.style.fontSize = '12px';
+            info.textContent = `Selected: ${selectedLinks.size}`;
+            box.appendChild(info);
+        } catch (e) { console.error("Tiktok UI: refreshMultiSelectUI failed", e); }
     }
 
-    // --- Injection Logic ---
+    // --- Hardened Injection Layer ---
     function injectIntoVideoCard(card) {
-        if (processedNodes.has(card)) {
-            // Re-sync visual state in case of React reuse
-            const a = card.querySelector('a[href*="/video/"], a[href*="/photo/"]');
-            if (a) {
-                const href = a.href.split('?')[0];
-                const cb = card.querySelector('.tmk-custom-checkbox');
-                if (cb) cb.checked = selectedLinks.has(href);
-            }
-            return;
-        }
-        processedNodes.add(card);
-
-        const a = card.querySelector('a[href*="/video/"], a[href*="/photo/"]');
-        if (!a) return;
-
-        const href = a.href.split('?')[0];
-        if (getComputedStyle(a).position === 'static') a.style.position = 'relative';
-
-        // Individual Checkbox
-        const leftWrapper = document.createElement('div');
-        Object.assign(leftWrapper.style, { position: 'absolute', top: '5px', left: '5px', zIndex: '10000' });
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.className = 'tmk-custom-checkbox';
-        cb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
-        cb.checked = selectedLinks.has(href);
-        ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
-        cb.addEventListener('change', () => {
-            if (cb.checked) selectedLinks.add(href);
-            else selectedLinks.delete(href);
-            refreshMultiSelectUI();
-        });
-        leftWrapper.appendChild(cb);
-        a.appendChild(leftWrapper);
-
-        // Row Selection Checkbox
-        const rightWrapper = document.createElement('div');
-        Object.assign(rightWrapper.style, { position: 'absolute', top: '5px', right: '5px', zIndex: '10000' });
-        const rowCb = document.createElement('input');
-        rowCb.type = 'checkbox';
-        rowCb.className = 'tmk-row-select-checkbox';
-        rowCb.style.cssText = 'transform: scale(2) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
-        ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
-        rowCb.addEventListener('change', () => {
-            // Find sibling items in the same grid row using offsetTop (robust layout primitive)
-            const myTop = card.offsetTop;
-            const container = card.closest('[class*="DivItemContainer"], [data-e2e="user-post-item-list"]') || document;
-            const siblings = container.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]');
-
-            siblings.forEach(sib => {
-                if (Math.abs(sib.offsetTop - myTop) < 10) {
-                    const sibA = sib.querySelector('a[href*="/video/"], a[href*="/photo/"]');
-                    const sibCb = sib.querySelector('.tmk-custom-checkbox');
-                    const sibRowCb = sib.querySelector('.tmk-row-select-checkbox');
-                    if (sibA && sibCb) {
-                        const sibHref = sibA.href.split('?')[0];
-                        sibCb.checked = rowCb.checked;
-                        if (rowCb.checked) selectedLinks.add(sibHref);
-                        else selectedLinks.delete(sibHref);
-                    }
-                    if (sibRowCb) sibRowCb.checked = rowCb.checked;
+        try {
+            // Self-healing: check if elements still exist
+            const existingCb = card.querySelector('.tmk-custom-checkbox');
+            if (existingCb && processedNodes.has(card)) {
+                // Just sync state
+                const a = card.querySelector('a[href*="/video/"], a[href*="/photo/"]');
+                if (a) {
+                    const href = a.href.split('?')[0];
+                    existingCb.checked = selectedLinks.has(href);
                 }
+                return;
+            }
+
+            // Not processed or elements gone
+            processedNodes.add(card);
+            if (existingCb) existingCb.parentElement.remove(); // Clean up partials
+            const existingRowCb = card.querySelector('.tmk-row-select-checkbox');
+            if (existingRowCb) existingRowCb.parentElement.remove();
+
+            const a = card.querySelector('a[href*="/video/"], a[href*="/photo/"]');
+            if (!a) return;
+
+            const href = a.href.split('?')[0];
+            if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
+
+            // Individual Checkbox (on card, not in <a>)
+            const leftWrapper = document.createElement('div');
+            Object.assign(leftWrapper.style, { position: 'absolute', top: '10px', left: '10px', zIndex: '10000' });
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'tmk-custom-checkbox';
+            cb.style.cssText = 'transform: scale(2.5) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
+            cb.checked = selectedLinks.has(href);
+            ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedLinks.add(href);
+                else selectedLinks.delete(href);
+                refreshMultiSelectUI();
             });
-            refreshMultiSelectUI();
-        });
-        rightWrapper.appendChild(rowCb);
-        a.appendChild(rightWrapper);
+            leftWrapper.appendChild(cb);
+            card.appendChild(leftWrapper);
+
+            // Row Selection Checkbox
+            const rightWrapper = document.createElement('div');
+            Object.assign(rightWrapper.style, { position: 'absolute', top: '10px', right: '10px', zIndex: '10000' });
+            const rowCb = document.createElement('input');
+            rowCb.type = 'checkbox';
+            rowCb.className = 'tmk-row-select-checkbox';
+            rowCb.style.cssText = 'transform: scale(2.5) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
+            ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
+            rowCb.addEventListener('change', () => {
+                const myTop = card.offsetTop;
+                // Dynamically find all visible cards and group by visual top
+                const allCards = document.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]');
+                allCards.forEach(sib => {
+                    if (Math.abs(sib.offsetTop - myTop) < 15) {
+                        const sibA = sib.querySelector('a[href*="/video/"], a[href*="/photo/"]');
+                        const sibCb = sib.querySelector('.tmk-custom-checkbox');
+                        const sibRowCb = sib.querySelector('.tmk-row-select-checkbox');
+                        if (sibA && sibCb) {
+                            const sibHref = sibA.href.split('?')[0];
+                            sibCb.checked = rowCb.checked;
+                            if (rowCb.checked) selectedLinks.add(sibHref);
+                            else selectedLinks.delete(sibHref);
+                        }
+                        if (sibRowCb) sibRowCb.checked = rowCb.checked;
+                    }
+                });
+                refreshMultiSelectUI();
+            });
+            rightWrapper.appendChild(rowCb);
+            card.appendChild(rightWrapper);
+        } catch (e) { console.error("Tiktok UI: injectIntoVideoCard failed", e); }
     }
 
-    // --- Initialization & Observation ---
+    // --- Hardened Initialization ---
     function init() {
         if (!document.body) { setTimeout(init, 50); return; }
 
-        // Event Delegation for card clicks (toggling checkbox)
+        // Event Delegation for toggling
         document.body.addEventListener('click', (e) => {
             if (!isProfilePage() || selectedLinks.size === 0) return;
             const card = e.target.closest('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]');
@@ -236,37 +221,35 @@
 
             const cb = card.querySelector('.tmk-custom-checkbox');
             if (cb) {
-                e.preventDefault();
-                e.stopPropagation();
+                e.preventDefault(); e.stopPropagation();
                 cb.checked = !cb.checked;
                 cb.dispatchEvent(new Event('change'));
             }
         }, { capture: true });
 
-        // Mutation Observer for newly added cards
-        const observer = new MutationObserver((mutations) => {
-            syncStateOnNavigation();
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== 1) continue;
-
-                    // Check if node is a card or contains cards
-                    if (node.matches('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]')) {
-                        injectIntoVideoCard(node);
-                    } else {
-                        node.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]').forEach(injectIntoVideoCard);
-                    }
+        // Debounced Observer
+        let pending = false;
+        const observer = new MutationObserver(() => {
+            if (pending) return;
+            pending = true;
+            requestAnimationFrame(() => {
+                pending = false;
+                syncStateOnNavigation();
+                if (isProfilePage()) {
+                    document.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]').forEach(injectIntoVideoCard);
                 }
-            }
+            });
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // Initial scan (only once)
-        document.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]').forEach(injectIntoVideoCard);
-
-        // Background interval only for re-syncing handle state (inexpensive)
-        setInterval(syncStateOnNavigation, 1000);
+        // Backup scan
+        setInterval(() => {
+            syncStateOnNavigation();
+            if (isProfilePage()) {
+                document.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]').forEach(injectIntoVideoCard);
+            }
+        }, 1500);
     }
 
     init();
