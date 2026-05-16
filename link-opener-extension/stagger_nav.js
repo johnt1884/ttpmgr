@@ -61,10 +61,10 @@
         Object.assign(icon.style, {
             all: 'initial', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', opacity: '0.7', transition: 'opacity 0.2s', pointerEvents: 'auto',
-            width: '28px', height: '28px', boxSizing: 'border-box'
+            width: '34px', height: '34px', boxSizing: 'border-box'
         });
 
-        icon.innerHTML = `<svg width="22" height="22" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        icon.innerHTML = `<svg width="26" height="26" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M14 10C14 8.89543 14.8954 8 16 8H32C33.1046 8 34 8.89543 34 10V12H14V10Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
             <path d="M40 20V41C40 42.1046 39.1046 43 38 43H10C8.89543 43 8 42.1046 8 41V14C8 12.8954 8.89543 12 10 12H14V16H34V12H38C39.1046 12 40 12.8954 40 14V17" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M16 25H32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 33H32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -120,7 +120,7 @@
         wrapper.appendChild(icon);
 
         if (usernameTarget) {
-            wrapper.style.marginLeft = '8px';
+            wrapper.style.marginLeft = '12px';
             usernameTarget.insertAdjacentElement('afterend', wrapper);
         } else if (fallbackTarget) {
             wrapper.style.marginBottom = '10px';

@@ -41,7 +41,7 @@
             container = document.createElement('div');
             container.id = 'tmk-notification-container';
             Object.assign(container.style, {
-                all: 'initial', position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
+                position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
                 maxWidth: '300px', fontSize: '14px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif'
             });
             document.body.appendChild(container);
@@ -74,7 +74,7 @@
                 box = document.createElement('div');
                 box.id = 'tmk-multi-select-ui';
                 Object.assign(box.style, {
-                    all: 'initial', position: 'fixed', top: '160px', right: '20px',
+                    position: 'fixed', top: '160px', right: '20px',
                     padding: '8px 12px', background: 'rgba(0,0,0,0.8)', color: '#fff',
                     fontSize: '12px', zIndex: 99999, borderRadius: '8px', boxShadow: '0 0 12px rgba(0,0,0,0.6)',
                     maxWidth: '200px', display: 'flex', flexDirection: 'column', gap: '6px',
@@ -151,12 +151,13 @@
 
             // Individual Checkbox (Top-Left)
             const leftWrapper = document.createElement('span');
-            Object.assign(leftWrapper.style, { position: 'absolute', top: '5px', left: '5px', zIndex: '100' });
+            Object.assign(leftWrapper.style, { position: 'absolute', top: '10px', left: '10px', zIndex: '100' });
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'tmk-custom-checkbox';
-            cb.style.cssText = 'transform: scale(1.3) !important; cursor: pointer !important; width: 14px !important; height: 14px !important; margin: 0 !important;';
+            cb.style.cssText = 'all: initial !important; appearance: checkbox !important; -webkit-appearance: checkbox !important; display: block !important; transform: scale(2.2) !important; cursor: pointer !important; width: 18px !important; height: 18px !important; margin: 0 !important;';
             cb.checked = selectedLinks.has(href);
+
             ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
             cb.addEventListener('change', () => {
                 if (cb.checked) selectedLinks.add(href);
@@ -168,23 +169,24 @@
 
             // Row Selection Checkbox (Top-Right)
             const rightWrapper = document.createElement('span');
-            Object.assign(rightWrapper.style, { position: 'absolute', top: '5px', right: '5px', zIndex: '100' });
+            Object.assign(rightWrapper.style, { position: 'absolute', top: '10px', right: '10px', zIndex: '100' });
             const rowCb = document.createElement('input');
             rowCb.type = 'checkbox';
             rowCb.className = 'tmk-row-select-checkbox';
-            rowCb.style.cssText = 'transform: scale(1.3) !important; cursor: pointer !important; width: 14px !important; height: 14px !important; margin: 0 !important;';
+            rowCb.style.cssText = 'all: initial !important; appearance: checkbox !important; -webkit-appearance: checkbox !important; display: block !important; transform: scale(2.2) !important; cursor: pointer !important; width: 18px !important; height: 18px !important; margin: 0 !important;';
+
             ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
             rowCb.addEventListener('change', () => {
                 const myRect = card.getBoundingClientRect();
-                const myTop = myRect.top + window.scrollY;
-                const myHeight = myRect.height;
+                const myCenterY = myRect.top + (myRect.height / 2) + window.scrollY;
 
                 const allCards = document.querySelectorAll('[class*="DivItemContainer"], [data-e2e="user-post-item"]');
                 allCards.forEach(sib => {
                     const sibRect = sib.getBoundingClientRect();
-                    const sibTop = sibRect.top + window.scrollY;
-                    // Improved row detection: overlap check
-                    if (Math.abs(sibTop - myTop) < myHeight / 2) {
+                    const sibCenterY = sibRect.top + (sibRect.height / 2) + window.scrollY;
+
+                    // Row detection using center-point overlap
+                    if (Math.abs(sibCenterY - myCenterY) < 20) {
                         const sibA = sib.querySelector('a[href*="/video/"], a[href*="/photo/"]');
                         const sibCb = sib.querySelector('.tmk-custom-checkbox');
                         const sibRowCb = sib.querySelector('.tmk-row-select-checkbox');
@@ -201,6 +203,19 @@
             });
             rightWrapper.appendChild(rowCb);
             card.appendChild(rightWrapper);
+
+            // Sync row checkbox state based on selection
+            const myRect = card.getBoundingClientRect();
+            const myCenterY = myRect.top + (myRect.height / 2) + window.scrollY;
+            const links = Array.from(document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]'));
+            const rowLinks = links.filter(l => {
+                const r = l.closest('[class*="DivItemContainer"], [data-e2e="user-post-item"]').getBoundingClientRect();
+                const c = r.top + (r.height / 2) + window.scrollY;
+                return Math.abs(c - myCenterY) < 20;
+            });
+            const allSelected = rowLinks.length > 0 && rowLinks.every(l => selectedLinks.has(l.href.split('?')[0]));
+            if (rowCb.checked !== allSelected) rowCb.checked = allSelected;
+
         } catch (e) { console.error("Tiktok UI: injectIntoVideoCard failed", e); }
     }
 
