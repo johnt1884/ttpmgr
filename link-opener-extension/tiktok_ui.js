@@ -322,6 +322,36 @@
 
     mainObserver.observe(document.body, { childList: true, subtree: true });
 
+    // ------------------ Leave Confirmation ------------------
+    window.addEventListener('click', (e) => {
+        if (selectedLinks.size === 0) return;
+
+        const anchor = e.target.closest('a');
+        if (!anchor) return;
+
+        const href = anchor.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+        // Don't block our own menu links or the extension bar if it existed there
+        if (e.target.closest('#tmk-multi-select-menu')) return;
+
+        // If it's a video card link, and we have selection, we might want to toggle instead
+        const card = anchor.closest('[data-e2e="user-post-item"]');
+
+        if (!confirm('You have videos selected. Are you sure you want to leave this page?')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            if (card) {
+                const cb = card.querySelector('.tmk-video-checkbox');
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+    }, true); // Capture phase to preempt other handlers
+
     // Initial run
     injectCheckboxes();
     injectVideoClipboardIcon();
