@@ -150,6 +150,16 @@ async function nextStaggered(senderTabId) {
 }
 
 // -----------------------------
+// ACTION (EXTENSION ICON CLICK)
+// -----------------------------
+chrome.action.onClicked.addListener((tab) => {
+    chrome.tabs.sendMessage(tab.id, { type: "ACTION_CLICKED" }).catch(() => {
+        // Fallback if content script not loaded/ready
+        console.warn("Action clicked but content script not responding in tab", tab.id);
+    });
+});
+
+// -----------------------------
 // MESSAGE LISTENER
 // -----------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

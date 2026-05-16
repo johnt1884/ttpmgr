@@ -257,6 +257,23 @@
         document.body.appendChild(container);
     }
 
+    // ------------------ Extension Icon Handler ------------------
+    if (isContextValid()) {
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.type === "ACTION_CLICKED") {
+                const url = location.href.split('?')[0];
+                const current = getInternalClipboard();
+                if (!current.includes(url)) {
+                    const next = [...current, url];
+                    saveInternalClipboard(next);
+                    showNotification(`Added current URL to list:\n${url}\nTotal: ${next.length}`, '#4ecdc4');
+                } else {
+                    showNotification(`URL already in list.\nTotal: ${current.length}`, '#ffbb00');
+                }
+            }
+        });
+    }
+
     // ------------------ Initialization ------------------
     const mainObserver = new MutationObserver(() => {
         injectCheckboxes();
