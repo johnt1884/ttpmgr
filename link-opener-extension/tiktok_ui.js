@@ -41,16 +41,17 @@
             container = document.createElement('div');
             container.id = 'tmk-notification-container';
             Object.assign(container.style, {
-                position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
-                maxWidth: '300px', fontSize: '14px', lineHeight: '1.3'
+                all: 'initial', position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
+                maxWidth: '300px', fontSize: '14px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif'
             });
             document.body.appendChild(container);
         }
         const note = document.createElement('div');
         Object.assign(note.style, {
-            padding: '10px 15px', background: 'rgba(0,0,0,0.85)', color: color,
+            all: 'initial', display: 'block', padding: '10px 15px', background: 'rgba(0,0,0,0.85)', color: color,
             borderRadius: '6px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            opacity: '0', transform: 'translateY(20px)', transition: 'opacity 0.3s ease, transform 0.3s ease'
+            opacity: '0', transform: 'translateY(20px)', transition: 'opacity 0.3s ease, transform 0.3s ease',
+            fontSize: '13px', lineHeight: '1.4', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box'
         });
         note.textContent = msg;
         container.appendChild(note);
@@ -73,72 +74,62 @@
                 box = document.createElement('div');
                 box.id = 'tmk-multi-select-ui';
                 Object.assign(box.style, {
-                    position: 'fixed', top: '160px', right: '20px', padding: '10px 20px',
-                    background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '14px',
-                    zIndex: 99999, borderRadius: '8px', boxShadow: '0 0 12px rgba(0,0,0,0.6)',
-                    maxWidth: '300px', lineHeight: '1.3', display: 'flex', flexDirection: 'column', gap: '5px'
+                    all: 'initial', position: 'fixed', top: '160px', right: '20px',
+                    padding: '8px 12px', background: 'rgba(0,0,0,0.8)', color: '#fff',
+                    fontSize: '12px', zIndex: 99999, borderRadius: '8px', boxShadow: '0 0 12px rgba(0,0,0,0.6)',
+                    maxWidth: '200px', display: 'flex', flexDirection: 'column', gap: '6px',
+                    fontFamily: 'Arial, sans-serif', boxSizing: 'border-box'
                 });
+
+                // Use Delegation for interactions
+                box.onclick = (e) => {
+                    const action = e.target.dataset.action;
+                    if (!action) return;
+                    e.preventDefault();
+
+                    if (action === 'copyClear') {
+                        if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
+                        const arr = Array.from(selectedLinks);
+                        localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(arr));
+                        navigator.clipboard.writeText(arr.join('\n')).catch(() => {});
+                        showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
+                    } else if (action === 'copyAppend') {
+                        const current = JSON.parse(localStorage.getItem(CLIPBOARD_KEY) || '[]');
+                        const merged = Array.from(new Set([...current, ...selectedLinks]));
+                        localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
+                        navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
+                        showNotification(`Appended ${selectedLinks.size} link(s).\nTotal in memory: ${merged.length}`, '#4ecdc4');
+                    } else if (action === 'clearSelection') {
+                        selectedLinks.clear();
+                        document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
+                        document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
+                        refreshMultiSelectUI();
+                        showNotification('Selection cleared!', '#95e1d3');
+                    } else if (action === 'clearMemory') {
+                        if (!confirm('Are you sure you want to clear memory?')) return;
+                        localStorage.removeItem(CLIPBOARD_KEY);
+                        showNotification('Internal clipboard cleared!', '#95e1d3');
+                    }
+                };
+
                 document.body.appendChild(box);
             }
 
-            box.innerHTML = '';
-            const createLink = (text, color, onClick) => {
-                const a = document.createElement('a');
-                a.href = '#';
-                a.textContent = text;
-                a.style.color = color;
-                a.style.textDecoration = 'none';
-                a.onclick = (e) => { e.preventDefault(); onClick(); };
-                return a;
-            };
-
-            const updateSystemClipboard = (arr) => {
-                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(arr));
-                navigator.clipboard.writeText(arr.join('\n')).catch(() => {});
-            };
-
-            box.appendChild(createLink('Copy Selected (Clear Memory First)', '#0ff', () => {
-                if (!confirm('Are you sure you want to clear memory and copy selected?')) return;
-                const arr = Array.from(selectedLinks);
-                updateSystemClipboard(arr);
-                showNotification(`Copied ${arr.length} selected link(s)!\n(Memory cleared first)`, '#4ecdc4');
-            }));
-
-            box.appendChild(createLink('Copy Selected (Append)', '#ff0', () => {
-                const current = JSON.parse(localStorage.getItem(CLIPBOARD_KEY) || '[]');
-                const merged = Array.from(new Set([...current, ...selectedLinks]));
-                updateSystemClipboard(merged);
-                showNotification(`Appended ${selectedLinks.size} link(s).\nTotal in memory: ${merged.length}`, '#4ecdc4');
-            }));
-
-            box.appendChild(createLink('Clear Selection', '#f80', () => {
-                selectedLinks.clear();
-                document.querySelectorAll('.tmk-custom-checkbox').forEach(cb => cb.checked = false);
-                document.querySelectorAll('.tmk-row-select-checkbox').forEach(cb => cb.checked = false);
-                refreshMultiSelectUI();
-                showNotification('Selection cleared!', '#95e1d3');
-            }));
-
-            box.appendChild(createLink('Clear Memory', '#f44', () => {
-                if (!confirm('Are you sure you want to clear memory?')) return;
-                localStorage.removeItem(CLIPBOARD_KEY);
-                showNotification('Internal clipboard cleared!', '#95e1d3');
-            }));
-
-            const info = document.createElement('span');
-            info.style.fontSize = '12px';
-            info.textContent = `Selected: ${selectedLinks.size}`;
-            box.appendChild(info);
+            box.innerHTML = `
+                <a href="#" data-action="copyClear" style="color:#0ff; text-decoration:none; display:block;">Copy Selected (Clear Memory)</a>
+                <a href="#" data-action="copyAppend" style="color:#ff0; text-decoration:none; display:block;">Copy Selected (Append)</a>
+                <a href="#" data-action="clearSelection" style="color:#f80; text-decoration:none; display:block;">Clear Selection</a>
+                <a href="#" data-action="clearMemory" style="color:#f44; text-decoration:none; display:block;">Clear Memory</a>
+                <span style="font-size:11px; opacity:0.8; margin-top:2px;">Selected: ${selectedLinks.size}</span>
+            `;
         } catch (e) { console.error("Tiktok UI: refreshMultiSelectUI failed", e); }
     }
 
     // --- Hardened Injection Layer ---
     function injectIntoVideoCard(card) {
         try {
-            // Self-healing: check if elements still exist
             const existingCb = card.querySelector('.tmk-custom-checkbox');
             if (existingCb && processedNodes.has(card)) {
-                // Just sync state
                 const a = card.querySelector('a[href*="/video/"], a[href*="/photo/"]');
                 if (a) {
                     const href = a.href.split('?')[0];
@@ -147,9 +138,8 @@
                 return;
             }
 
-            // Not processed or elements gone
             processedNodes.add(card);
-            if (existingCb) existingCb.parentElement.remove(); // Clean up partials
+            if (existingCb) existingCb.parentElement.remove();
             const existingRowCb = card.querySelector('.tmk-row-select-checkbox');
             if (existingRowCb) existingRowCb.parentElement.remove();
 
@@ -161,11 +151,13 @@
 
             // Individual Checkbox (on card, not in <a>)
             const leftWrapper = document.createElement('div');
-            Object.assign(leftWrapper.style, { position: 'absolute', top: '10px', left: '10px', zIndex: '10000' });
+            Object.assign(leftWrapper.style, {
+                all: 'initial', position: 'absolute', top: '8px', left: '8px', zIndex: '10000'
+            });
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'tmk-custom-checkbox';
-            cb.style.cssText = 'transform: scale(2.5) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
+            cb.style.cssText = 'all: initial !important; -webkit-appearance: checkbox !important; appearance: checkbox !important; display: block !important; transform: scale(1.8) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
             cb.checked = selectedLinks.has(href);
             ['click','mousedown','mouseup'].forEach(evt => cb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
             cb.addEventListener('change', () => {
@@ -178,18 +170,20 @@
 
             // Row Selection Checkbox
             const rightWrapper = document.createElement('div');
-            Object.assign(rightWrapper.style, { position: 'absolute', top: '10px', right: '10px', zIndex: '10000' });
+            Object.assign(rightWrapper.style, {
+                all: 'initial', position: 'absolute', top: '8px', right: '8px', zIndex: '10000'
+            });
             const rowCb = document.createElement('input');
             rowCb.type = 'checkbox';
             rowCb.className = 'tmk-row-select-checkbox';
-            rowCb.style.cssText = 'transform: scale(2.5) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
+            rowCb.style.cssText = 'all: initial !important; -webkit-appearance: checkbox !important; appearance: checkbox !important; display: block !important; transform: scale(1.8) !important; cursor: pointer !important; width: 16px !important; height: 16px !important; margin: 0 !important;';
             ['click','mousedown','mouseup'].forEach(evt => rowCb.addEventListener(evt, e => e.stopPropagation(), { capture: true }));
             rowCb.addEventListener('change', () => {
-                const myTop = card.offsetTop;
-                // Dynamically find all visible cards and group by visual top
+                const myTop = card.getBoundingClientRect().top + window.scrollY;
                 const allCards = document.querySelectorAll('[class*="DivItemContainerV2"], [data-e2e="user-post-item"]');
                 allCards.forEach(sib => {
-                    if (Math.abs(sib.offsetTop - myTop) < 15) {
+                    const sibTop = sib.getBoundingClientRect().top + window.scrollY;
+                    if (Math.abs(sibTop - myTop) < 20) {
                         const sibA = sib.querySelector('a[href*="/video/"], a[href*="/photo/"]');
                         const sibCb = sib.querySelector('.tmk-custom-checkbox');
                         const sibRowCb = sib.querySelector('.tmk-row-select-checkbox');

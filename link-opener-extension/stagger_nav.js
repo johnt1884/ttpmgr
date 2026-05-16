@@ -23,16 +23,17 @@
             container = document.createElement('div');
             container.id = 'tmk-notification-container';
             Object.assign(container.style, {
-                position: 'fixed', bottom: '20px', right: '20px', zIndex: 2000000,
-                maxWidth: '300px', fontSize: '14px', lineHeight: '1.3'
+                all: 'initial', position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000000,
+                maxWidth: '300px', fontSize: '14px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif'
             });
             document.body.appendChild(container);
         }
         const note = document.createElement('div');
         Object.assign(note.style, {
-            padding: '10px 15px', background: 'rgba(0,0,0,0.85)', color: color,
+            all: 'initial', display: 'block', padding: '10px 15px', background: 'rgba(0,0,0,0.85)', color: color,
             borderRadius: '6px', marginBottom: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            opacity: '0', transform: 'translateY(20px)', transition: 'opacity 0.3s ease, transform 0.3s ease'
+            opacity: '0', transform: 'translateY(20px)', transition: 'opacity 0.3s ease, transform 0.3s ease',
+            fontSize: '13px', lineHeight: '1.4', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box'
         });
         note.textContent = msg;
         container.appendChild(note);
@@ -49,8 +50,9 @@
         icon.id = id;
         icon.title = 'Add Current URL to List';
         Object.assign(icon.style, {
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', opacity: '0.7', transition: 'opacity 0.2s', pointerEvents: 'auto'
+            all: 'initial', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', opacity: '0.7', transition: 'opacity 0.2s', pointerEvents: 'auto',
+            width: '32px', height: '32px', boxSizing: 'border-box'
         });
 
         icon.innerHTML = `<svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -89,7 +91,6 @@
         }
 
         const usernameTarget = document.querySelector('span[data-e2e="browse-username"]');
-        // Look for stable action bar container outside of re-rendered internals if possible
         const fallbackTarget = document.querySelector('div[class*="DivAvatarActionItemContainer"]') ||
                                document.querySelector('section[class*="SectionActionBarContainer"]');
 
@@ -99,21 +100,23 @@
         const desiredParent = usernameTarget ? usernameTarget.parentElement : (fallbackTarget ? fallbackTarget.parentElement : null);
 
         if (icon) {
-            // Self-healing: if parent changed or detached, re-inject
             if (icon.parentElement === desiredParent && document.body.contains(icon)) return;
             icon.remove();
         }
 
+        const wrapper = document.createElement('div');
+        Object.assign(wrapper.style, { all: 'initial', display: 'inline-block', verticalAlign: 'middle', boxSizing: 'border-box' });
+
         icon = createClipboardIcon('tmk-video-clipboard-icon-v2');
+        wrapper.appendChild(icon);
+
         if (usernameTarget) {
-            icon.style.marginLeft = '12px';
-            icon.style.display = 'inline-flex';
-            icon.style.verticalAlign = 'middle';
-            usernameTarget.insertAdjacentElement('afterend', icon);
+            wrapper.style.marginLeft = '12px';
+            usernameTarget.insertAdjacentElement('afterend', wrapper);
         } else if (fallbackTarget) {
-            icon.style.marginBottom = '15px';
-            icon.style.display = 'flex';
-            fallbackTarget.parentNode.insertBefore(icon, fallbackTarget);
+            wrapper.style.marginBottom = '15px';
+            wrapper.style.display = 'block';
+            fallbackTarget.parentNode.insertBefore(wrapper, fallbackTarget);
         }
     }
 
@@ -130,8 +133,8 @@
         const options = document.createElement('div');
         options.id = 'tmk-story-options-v2';
         Object.assign(options.style, {
-            position: 'fixed', top: '4.5rem', right: '1rem', zIndex: 999999,
-            display: 'flex', gap: '10px', alignItems: 'center'
+            all: 'initial', position: 'fixed', top: '4.5rem', right: '1rem', zIndex: 999999,
+            display: 'flex', gap: '10px', alignItems: 'center', boxSizing: 'border-box'
         });
 
         const iconAppend = createClipboardIcon('tmk-story-append-icon');
@@ -176,11 +179,12 @@
         btn.textContent = ">>";
         btn.title = "Progress to Next Link";
         Object.assign(btn.style, {
-            position: "fixed", right: "20px", top: "50%", transform: "translateY(-50%)",
+            all: "initial", position: "fixed", right: "20px", top: "50%", transform: "translateY(-50%)",
             zIndex: "999999", width: "50px", height: "50px", display: "flex",
             alignItems: "center", justifyContent: "center", fontSize: "20px",
             background: "#000", color: "#fff", border: "2px solid #fff",
-            borderRadius: "50%", cursor: "pointer", opacity: "0.7"
+            borderRadius: "50%", cursor: "pointer", opacity: "0.7", boxSizing: "border-box",
+            fontFamily: "monospace"
         });
 
         btn.onclick = () => safeSendMessage({ type: "NEXT_STAGGERED" });
@@ -197,9 +201,10 @@
         counter.id = "stagger-counter";
         counter.textContent = `${String(current).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
         Object.assign(counter.style, {
-            position: "fixed", top: "20px", right: "135px", zIndex: "999999",
+            all: "initial", position: "fixed", top: "20px", right: "135px", zIndex: "999999",
             background: "rgba(0, 0, 0, 0.7)", color: "#fff", padding: "5px 10px",
-            borderRadius: "5px", fontSize: "16px", fontWeight: "bold", fontFamily: "monospace"
+            borderRadius: "5px", fontSize: "16px", fontWeight: "bold", fontFamily: "monospace",
+            boxSizing: "border-box", display: "block"
         });
         document.body.appendChild(counter);
     }

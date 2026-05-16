@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name TikTok Video Counter + Multi-Select + Test New Videos (more robust)
 // @namespace http://tampermonkey.net/
-// @version 1.14
+// @version 1.15
 // @description Improved Test New accuracy: ID-based comparison vs a larger saved ID-set (up to 128), waits for DOM stability, timestamps snapshot. SPA-friendly. Multi-select + internal clipboard unchanged. Added copy selected (clear/appended) and safer alert/confirm handling. Removed popups, added bottom-right notifications. Added top-right row-select checkbox per video (position-based row detection). Removed '+' buttons. Fixed checkbox size to static scale(3).
 // @author You
 // @match https://www.tiktok.com/@*
@@ -77,13 +77,15 @@
         if (notificationContainer) return;
         notificationContainer = document.createElement('div');
         Object.assign(notificationContainer.style, {
+            all: 'initial',
             position: 'fixed',
             bottom: '20px',
             right: '20px',
             zIndex: 99999,
             maxWidth: '300px',
             fontSize: '14px',
-            lineHeight: '1.3'
+            lineHeight: '1.3',
+            fontFamily: 'Arial, sans-serif'
         });
         document.body.appendChild(notificationContainer);
     }
@@ -91,6 +93,8 @@
         initNotifications();
         const note = document.createElement('div');
         Object.assign(note.style, {
+            all: 'initial',
+            display: 'block',
             padding: '10px 15px',
             background: `rgba(0,0,0,0.85)`,
             color: color,
@@ -99,7 +103,10 @@
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
             opacity: '0',
             transform: 'translateY(20px)',
-            transition: 'opacity 0.3s ease, transform 0.3s ease'
+            transition: 'opacity 0.3s ease, transform 0.3s ease',
+            fontSize: '13px',
+            fontFamily: 'Arial, sans-serif',
+            boxSizing: 'border-box'
         });
         note.textContent = msg;
         notificationContainer.appendChild(note);
@@ -278,66 +285,70 @@
             box = document.createElement('div');
             box.id = 'exactVideoCountDisplay';
             Object.assign(box.style, {
+                all: 'initial',
                 position: 'fixed',
                 top: '80px',
                 right: '20px',
-                padding: '10px 20px',
+                padding: '6px 12px',
                 background: 'rgba(0,0,0,0.75)',
                 color: '#fff',
-                fontSize: '14px',
+                fontSize: '12px',
                 zIndex: 99999,
                 borderRadius: '8px',
                 boxShadow: '0 0 12px rgba(0,0,0,0.6)',
-                maxWidth: '300px',
-                lineHeight: '1.3'
+                maxWidth: '180px',
+                lineHeight: '1.4',
+                fontFamily: 'Arial, sans-serif',
+                display: 'block',
+                boxSizing: 'border-box'
             });
+
+            // Delegation for interaction stability
+            box.onclick = (e) => {
+                const id = e.target.id;
+                if (!id) return;
+
+                const prev = getSavedVideoCount(username);
+                if (id === 'copyAllPosts') {
+                    e.preventDefault();
+                    scrollAndCollectAllPosts();
+                } else if (id === 'copyNewPosts') {
+                    e.preventDefault();
+                    scrollAndCollectAllPosts(true, prev);
+                } else if (id === 'copyTestNew') {
+                    e.preventDefault();
+                    if (!newUrls || newUrls.length === 0) return showNotification('No new URLs found.', '#ff6b6b');
+                    const updatedClipboard = appendToClipboard(newUrls);
+                    try {
+                        navigator.clipboard.writeText(updatedClipboard.join('\n')).catch(() => {});
+                    } catch(e){}
+                    showNotification(`Copied ${newUrls.length} new link(s).\nTotal in memory: ${updatedClipboard.length}`, '#4ecdc4');
+                    highlightUrls(newUrls);
+                }
+            };
+
             document.body.appendChild(box);
         }
         const prev = getSavedVideoCount(username);
         const newVideos = prev !== null ? count - prev : 0;
-        let html = `<a href="#" style="color:#0ff;" id="copyAllPosts">Total Videos: ${count}</a>`;
+        let html = `<a href="#" style="color:#0ff; text-decoration:none; display:block;" id="copyAllPosts">Total Videos: ${count}</a>`;
         if (SHOW_NEW_STATS) {
-            if (newVideos !== 0) html += `<br><a href="#" style="color:#0f0;" id="copyNewPosts">New Videos: ${newVideos > 0 ? '+' : ''}${newVideos}</a>`;
+            if (newVideos !== 0) html += `<a href="#" style="color:#0f0; text-decoration:none; display:block;" id="copyNewPosts">New Videos: ${newVideos > 0 ? '+' : ''}${newVideos}</a>`;
             if (testNewCount === 'n/a') {
-                html += `<br><span style="color:#aaa;">Test New Videos: n/a</span>`;
+                html += `<span style="color:#aaa; display:block;">Test New Videos: n/a</span>`;
             } else if (testNewCount > 0) {
-                html += `<br><a href="#" style="color:#ffa500;" id="copyTestNew">Test New Videos: +${testNewCount}</a>`;
+                html += `<a href="#" style="color:#ffa500; text-decoration:none; display:block;" id="copyTestNew">Test New Videos: +${testNewCount}</a>`;
             } else {
-                html += `<br><span style="color:#aaa;">Test New Videos: 0</span>`;
+                html += `<span style="color:#aaa; display:block;">Test New Videos: 0</span>`;
             }
         }
         // Multi-select UI moved to extension
         // Debug info: show saved snapshot timestamp and saved count if provided
         if (savedSnapshot && savedSnapshot.ids) {
-            html += `<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:6px 0;">`;
-            html += `<div style="font-size:11px;color:#bbb;">Saved IDs: ${savedSnapshot.ids.length} <br>Snapshot: ${formatTimestamp(savedSnapshot.ts)}</div>`;
+            html += `<hr style="all:initial; display:block; border:none; border-top:1px solid rgba(255,255,255,0.1); margin:4px 0;">`;
+            html += `<div style="font-size:10px; color:#bbb; line-height:1.2;">Saved IDs: ${savedSnapshot.ids.length} <br>Snapshot: ${formatTimestamp(savedSnapshot.ts)}</div>`;
         }
         box.innerHTML = html;
-        // ------------------ Button Handlers ------------------
-        const copyAll = document.getElementById('copyAllPosts');
-        if (copyAll) copyAll.onclick = e => { e.preventDefault(); scrollAndCollectAllPosts(); };
-        const newBtn = document.getElementById('copyNewPosts');
-        if (newBtn) newBtn.onclick = e => { e.preventDefault(); scrollAndCollectAllPosts(true, prev); };
-        const testBtn = document.getElementById('copyTestNew');
-        if (testBtn) {
-            testBtn.onclick = e => {
-                e.preventDefault();
-                if (!newUrls || newUrls.length === 0) return showNotification('No new URLs found.', '#ff6b6b');
-                const updatedClipboard = appendToClipboard(newUrls);
-                try {
-                    // Always copy the full, updated list to the system clipboard
-                    navigator.clipboard.writeText(updatedClipboard.join('\n')).catch(err =>{
-                        console.error("Clipboard write failed (async):", err);
-                        showNotification('Clipboard write failed.', '#ff6b6b');
-                    });
-                } catch(e){
-                    console.error("Clipboard write failed (sync):", e);
-                }
-                showNotification(`Copied ${newUrls.length} new link(s).\nTotal in memory: ${updatedClipboard.length}`, '#4ecdc4');
-                highlightUrls(newUrls);
-            };
-        }
-        // Multi-select handlers moved to extension
     }
     // ------------------ Visual helpers ------------------
     function highlightUrls(urls) {
@@ -357,7 +368,6 @@
         let lastHeight = 0, retry = 0;
         const scroller = document.scrollingElement || document.documentElement;
         function step() {
-            const totalLinks = getPostLinks().length;
             scroller.scrollTo(0, scroller.scrollHeight);
             if (scroller.scrollHeight !== lastHeight) {
                 lastHeight = scroller.scrollHeight;
@@ -371,14 +381,8 @@
                     const filtered = onlyNew ? links.slice(0, oldCount ? links.length - oldCount : links.length) : links;
                     const updatedClipboard = appendToClipboard(filtered);
                     try {
-                        // Always copy the full, updated list to the system clipboard
-                        navigator.clipboard.writeText(updatedClipboard.join('\n')).catch(err =>{
-                            console.error("Clipboard write failed (async):", err);
-                            showNotification('Clipboard write failed.', '#ff6b6b');
-                        });
-                    } catch(e){
-                        console.error("Clipboard write failed (sync):", e);
-                    }
+                        navigator.clipboard.writeText(updatedClipboard.join('\n')).catch(() => {});
+                    } catch(e){}
                     showNotification(`Copied ${filtered.length} link(s).\nTotal in memory: ${updatedClipboard.length}`, '#4ecdc4');
                 }
             }
@@ -389,8 +393,6 @@
     // ------------------ Cross-Tab Sync ------------------
     window.addEventListener('storage', e => {
         if (e.key === CLIPBOARD_KEY) {
-            internalClipboard = readClipboard(); // Re-read from storage to ensure consistency
-            showNotification('Clipboard updated from another tab.', '#88d8b0', 2000);
             if (isProfilePage()) {
                 extractVideoCount(); // Re-render the display
             }
@@ -409,4 +411,3 @@
     }, 2000);
     window.addEventListener('load', () => setTimeout(extractVideoCount, 3000));
 })();
-
