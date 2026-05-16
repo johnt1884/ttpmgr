@@ -266,16 +266,21 @@ async function applySort(mode) {
     }
 
     const itemsWithDates = [];
-    const allListItems = document.querySelectorAll("li");
     
+    // Use originalStructure if available to determine the true original order
     let globalIndex = 0;
-    for (const li of allListItems) {
-        const link = li.querySelector("a[href]");
-        if (link) {
-            const ts = await getTimestampForLink(link);
-            const cleanLi = li.cloneNode(true);
-            cleanLi.querySelectorAll(".link-checkbox, .date-suffix, .category-controls").forEach(el => el.remove());
-            itemsWithDates.push({ li: cleanLi, ts, originalIndex: globalIndex++ });
+    const sourceNodes = originalStructure || Array.from(container.children).filter(el => el !== bar);
+
+    for (const node of sourceNodes) {
+        const allLIs = node.tagName === "LI" ? [node] : Array.from(node.querySelectorAll("li"));
+        for (const li of allLIs) {
+            const link = li.querySelector("a[href]");
+            if (link) {
+                const ts = await getTimestampForLink(link);
+                const cleanLi = li.cloneNode(true);
+                cleanLi.querySelectorAll(".link-checkbox, .date-suffix, .category-controls").forEach(el => el.remove());
+                itemsWithDates.push({ li: cleanLi, ts, originalIndex: globalIndex++ });
+            }
         }
     }
 
