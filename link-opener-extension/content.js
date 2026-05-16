@@ -90,10 +90,23 @@ async function saveSelections() {
     await safeStorage.set({ [key]: selected });
 }
 
+async function pruneSelections(selectedUrls) {
+    const currentUrls = getAllLinks();
+    const activeSelected = selectedUrls.filter(url => currentUrls.includes(url));
+    if (activeSelected.length !== selectedUrls.length) {
+        const key = getPageKey(SELECTED_KEY_PREFIX);
+        await safeStorage.set({ [key]: activeSelected });
+    }
+    return activeSelected;
+}
+
 async function loadSelections() {
     const key = getPageKey(SELECTED_KEY_PREFIX);
     const result = await safeStorage.get(key);
-    const selectedUrls = result[key] || [];
+    let selectedUrls = result[key] || [];
+
+    // Scenario 1: Only keep links present in the current HTML
+    selectedUrls = await pruneSelections(selectedUrls);
     
     const checkboxes = document.querySelectorAll(".link-checkbox");
     checkboxes.forEach(cb => {

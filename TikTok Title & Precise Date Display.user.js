@@ -327,7 +327,7 @@
         newMetas.forEach(meta => {
           const host = meta.closest(`.${SCRIPT_ID}__host`);
           if (host) {
-            const checkbox = host.querySelector('.tmk-custom-checkbox');
+            const checkbox = host.querySelector('.tmk-custom-checkbox, .tmk-video-checkbox');
             if (checkbox && !checkbox.checked) {
               checkbox.checked = true;
               checkbox.dispatchEvent(new Event('change', { bubbles: true }));
