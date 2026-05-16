@@ -460,7 +460,18 @@
                 }
                 pollCount++;
                 
-                // 1. Check for the userscript element as a primary signal
+                // 1. Check for "Something went wrong" (case-insensitive) as a "hit"
+                const pageText = document.body.innerText;
+                if (pageText && /Something went wrong/i.test(pageText)) {
+                    console.log("Staggered Navigation: 'Something went wrong' detected! Stopping automation.");
+                    clearInterval(pollInterval);
+                    if (isContextValid()) {
+                        chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
+                    }
+                    return;
+                }
+
+                // 2. Check for the userscript element as a primary signal
                 const newCountElement = document.getElementById('tt-thumb-meta__new-count');
                 if (newCountElement && parseInt(newCountElement.textContent) > 0) {
                     console.log("Staggered Navigation: New videos found via userscript signal! Stopping automation.");
