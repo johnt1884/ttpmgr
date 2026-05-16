@@ -146,6 +146,45 @@
             cb.onclick = (e) => e.stopPropagation();
 
             card.appendChild(cb);
+
+            // Row Selection Checkbox (Top-Right)
+            const rowCb = document.createElement('input');
+            rowCb.type = 'checkbox';
+            rowCb.className = 'tmk-row-checkbox';
+            rowCb.title = 'Select entire row';
+            Object.assign(rowCb.style, {
+                position: 'absolute', top: '10px', right: '10px', zIndex: '10',
+                transform: 'scale(2)', cursor: 'pointer'
+            });
+
+            rowCb.addEventListener('change', () => {
+                const rect = card.getBoundingClientRect();
+                const currentTop = rect.top + window.scrollY;
+
+                const allCards = document.querySelectorAll('[data-e2e="user-post-item"]');
+                allCards.forEach(c => {
+                    const cRect = c.getBoundingClientRect();
+                    const cTop = cRect.top + window.scrollY;
+
+                    if (Math.abs(cTop - currentTop) < 10) { // Same row threshold
+                        const innerCb = c.querySelector('.tmk-video-checkbox');
+                        const innerLink = c.querySelector('a[href*="/video/"], a[href*="/photo/"]');
+                        if (innerCb && innerLink) {
+                            const url = innerLink.href.split('?')[0];
+                            innerCb.checked = rowCb.checked;
+                            if (rowCb.checked) selectedLinks.add(url);
+                            else selectedLinks.delete(url);
+                        }
+
+                        const innerRowCb = c.querySelector('.tmk-row-checkbox');
+                        if (innerRowCb) innerRowCb.checked = rowCb.checked;
+                    }
+                });
+                updateMultiSelectMenu();
+            });
+
+            rowCb.onclick = (e) => e.stopPropagation();
+            card.appendChild(rowCb);
         });
     }
 
