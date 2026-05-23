@@ -27,7 +27,21 @@ function rand(min, max) {
 // -----------------------------
 // CORE LOGIC
 // -----------------------------
+function transformSpecialUrl(url) {
+    const decodedUrl = decodeURIComponent(url);
+    if (decodedUrl.includes(" #")) {
+        const match = decodedUrl.match(/@([^\/ #]+)/);
+        if (match) {
+            const username = match[1];
+            return `https://ssstiktok.dev/#username=${username}`;
+        }
+    }
+    return url;
+}
+
 async function openTabsSmart(urls) {
+    urls = urls.map(transformSpecialUrl);
+
     const [currentTab] = await chrome.tabs.query({
         active: true,
         currentWindow: true
@@ -85,6 +99,8 @@ let staggeredOpenerTabId = null;
 async function startStaggered(urls, openerTabId) {
     if (!urls || urls.length === 0) return;
     
+    urls = urls.map(transformSpecialUrl);
+
     const total = urls.length;
     const currentIndex = 1;
     staggeredQueue = [...urls];
@@ -148,6 +164,16 @@ async function nextStaggered(senderTabId) {
         staggeredCurrentIndex: currentIndex
     });
 }
+
+// -----------------------------
+// ACTION (EXTENSION ICON CLICK)
+// -----------------------------
+chrome.action.onClicked.addListener((tab) => {
+    chrome.tabs.sendMessage(tab.id, { type: "ACTION_CLICKED" }).catch(() => {
+        // Fallback if content script not loaded/ready
+        console.warn("Action clicked but content script not responding in tab", tab.id);
+    });
+});
 
 // -----------------------------
 // MESSAGE LISTENER

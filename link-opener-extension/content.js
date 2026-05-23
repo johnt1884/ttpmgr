@@ -90,10 +90,23 @@ async function saveSelections() {
     await safeStorage.set({ [key]: selected });
 }
 
+async function pruneSelections(selectedUrls) {
+    const currentUrls = getAllLinks();
+    const activeSelected = selectedUrls.filter(url => currentUrls.includes(url));
+    if (activeSelected.length !== selectedUrls.length) {
+        const key = getPageKey(SELECTED_KEY_PREFIX);
+        await safeStorage.set({ [key]: activeSelected });
+    }
+    return activeSelected;
+}
+
 async function loadSelections() {
     const key = getPageKey(SELECTED_KEY_PREFIX);
     const result = await safeStorage.get(key);
-    const selectedUrls = result[key] || [];
+    let selectedUrls = result[key] || [];
+
+    // Scenario 1: Only keep links present in the current HTML
+    selectedUrls = await pruneSelections(selectedUrls);
     
     const checkboxes = document.querySelectorAll(".link-checkbox");
     checkboxes.forEach(cb => {
@@ -266,16 +279,21 @@ async function applySort(mode) {
     }
 
     const itemsWithDates = [];
-    const allListItems = document.querySelectorAll("li");
     
+    // Use originalStructure if available to determine the true original order
     let globalIndex = 0;
-    for (const li of allListItems) {
-        const link = li.querySelector("a[href]");
-        if (link) {
-            const ts = await getTimestampForLink(link);
-            const cleanLi = li.cloneNode(true);
-            cleanLi.querySelectorAll(".link-checkbox, .date-suffix, .category-controls").forEach(el => el.remove());
-            itemsWithDates.push({ li: cleanLi, ts, originalIndex: globalIndex++ });
+    const sourceNodes = originalStructure || Array.from(container.children).filter(el => el !== bar);
+
+    for (const node of sourceNodes) {
+        const allLIs = node.tagName === "LI" ? [node] : Array.from(node.querySelectorAll("li"));
+        for (const li of allLIs) {
+            const link = li.querySelector("a[href]");
+            if (link) {
+                const ts = await getTimestampForLink(link);
+                const cleanLi = li.cloneNode(true);
+                cleanLi.querySelectorAll(".link-checkbox, .date-suffix, .category-controls").forEach(el => el.remove());
+                itemsWithDates.push({ li: cleanLi, ts, originalIndex: globalIndex++ });
+            }
         }
     }
 
@@ -1042,6 +1060,32 @@ async function addCheckboxes() {
             suffix.className = "date-suffix";
             suffix.textContent = ` [${dateStr}]`;
             link.parentNode.insertBefore(suffix, link.nextSibling);
+        }
+
+        // Special link handling: " #" suffix
+        const decodedHref = decodeURIComponent(link.href);
+        if (decodedHref.includes(" #")) {
+            // Hide from display (handle encoded space too)
+            link.textContent = link.textContent.replace(/(\s+|%20)#$/, "");
+
+            // Intercept manual click to transform URL
+            link.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const match = decodedHref.match(/@([^\/ #?]+)/);
+                if (match) {
+                    const username = match[1];
+                    window.open(`https://ssstiktok.dev/#username=${username}`, '_blank');
+                }
+            };
+
+            // Update checkbox data to transformed URL
+            if (cb) {
+                const match = decodedHref.match(/@([^\/ #?]+)/);
+                if (match) {
+                    cb.dataset.href = `https://ssstiktok.dev/#username=${match[1]}`;
+                }
+            }
         }
     }
 }

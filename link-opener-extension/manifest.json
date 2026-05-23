@@ -7,6 +7,7 @@
   "background": {
     "service_worker": "background.js"
   },
+  "action": {},
   "content_scripts": [
     {
       "matches": ["file:///*"],
@@ -14,7 +15,11 @@
     },
     {
       "matches": ["https://www.tiktok.com/*"],
-      "js": ["tiktok_meta.js", "stagger_nav.js"]
+      "js": ["tiktok_meta.js", "tiktok_ui.js", "stagger_nav.js"]
+    },
+    {
+      "matches": ["https://ssstiktok.dev/*"],
+      "js": ["ssstiktok_handler.js"]
     }
   ]
 }

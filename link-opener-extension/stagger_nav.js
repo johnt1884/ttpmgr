@@ -107,16 +107,36 @@
                 clearInterval(statePoll);
                 return;
             }
-            updateState();
+            // Update: check both userscript and extension checkboxes
+            const anySelected = document.querySelector('.tmk-custom-checkbox:checked, .tmk-video-checkbox:checked');
+            if (anySelected) {
+                btn.style.color = "yellow";
+                btn.style.borderColor = "yellow";
+                btn.title = "Add Link/s to List and Progress to Next Link";
+            } else {
+                btn.style.color = "#fff";
+                btn.style.borderColor = "#fff";
+                btn.title = "Progress to Next Link";
+            }
         }, 500);
 
         btn.onclick = () => {
             if (!isContextValid()) return;
-            const selected = document.querySelectorAll(".tmk-custom-checkbox:checked");
+            const selected = document.querySelectorAll(".tmk-custom-checkbox:checked, .tmk-video-checkbox:checked");
             if (selected.length > 0) {
                 const urls = Array.from(selected).map(cb => {
-                    const a = cb.closest('a') || cb.parentElement.querySelector('a');
-                    return a ? a.href.split('?')[0] : null;
+                    // tmk-video-checkbox in extension is attached to the card, which should have a link inside.
+                    // tmk-custom-checkbox in userscript is inside the A tag.
+                    let url = null;
+                    if (cb.classList.contains('tmk-video-checkbox')) {
+                        const card = cb.closest('[data-e2e="user-post-item"]');
+                        const a = card ? card.querySelector('a[href]') : null;
+                        url = a ? a.href.split('?')[0] : null;
+                    } else {
+                        const a = cb.closest('a') || cb.parentElement.querySelector('a');
+                        url = a ? a.href.split('?')[0] : null;
+                    }
+                    return url;
                 }).filter(Boolean);
 
                 if (urls.length > 0) {
@@ -385,168 +405,6 @@
         document.body.appendChild(counter);
     }
 
-    // -----------------------------
-    // STORY CONTROLS
-    // -----------------------------
-    function injectStoryOptions() {
-        const existing = document.getElementById('tmk-story-options');
-        const isVideo = /\/(video|photo)\/\d+/.test(location.pathname);
-
-        if (isVideo) {
-            if (existing) existing.remove();
-            return;
-        }
-
-        if (existing) return;
-
-        const exitBtn = document.querySelector('button[aria-label="exit"]');
-        if (!exitBtn) return;
-
-        const options = document.createElement('div');
-        options.id = 'tmk-story-options';
-        Object.assign(options.style, {
-            position: 'fixed',
-            top: '4.5rem',
-            right: '1rem',
-            zIndex: 999999,
-            color: '#fff',
-            fontSize: '14px',
-            textAlign: 'right',
-            background: 'rgba(0,0,0,0.5)',
-            padding: '5px 10px',
-            borderRadius: '4px'
-        });
-
-        const appendBtn = document.createElement('div');
-        appendBtn.textContent = 'Add Current URL to List';
-        appendBtn.style.cursor = 'pointer';
-        appendBtn.style.marginBottom = '5px';
-        appendBtn.style.textDecoration = 'underline';
-        appendBtn.onclick = () => {
-            const url = location.href.split('?')[0];
-            const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-            const raw = localStorage.getItem(CLIPBOARD_KEY);
-            const currentItems = raw ? JSON.parse(raw) : [];
-            if (!currentItems.includes(url)) {
-                const merged = [...currentItems, url];
-                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
-                navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
-                showNotification(`Added current story to list.\nTotal: ${merged.length}`, '#4ecdc4');
-            } else {
-                showNotification("URL already in list.", "#ff6b6b");
-            }
-        };
-
-        const clearCopyBtn = document.createElement('div');
-        clearCopyBtn.textContent = 'Clear List & Copy Current URL';
-        clearCopyBtn.style.cursor = 'pointer';
-        clearCopyBtn.style.textDecoration = 'underline';
-        clearCopyBtn.onclick = () => {
-            const url = location.href.split('?')[0];
-            const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-            localStorage.setItem(CLIPBOARD_KEY, JSON.stringify([url]));
-            navigator.clipboard.writeText(url).catch(() => {});
-            showNotification("Cleared list and copied current story.", "#4ecdc4");
-        };
-
-        options.appendChild(appendBtn);
-        options.appendChild(clearCopyBtn);
-        document.body.appendChild(options);
-    }
-
-    // -----------------------------
-    // VIDEO PAGE CLIPBOARD ICON
-    // -----------------------------
-    function createClipboardIcon(id) {
-        const icon = document.createElement('div');
-        icon.id = id;
-        icon.title = 'Add Current URL to List';
-        Object.assign(icon.style, {
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            opacity: '0.7',
-            transition: 'opacity 0.2s'
-        });
-
-        icon.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M14 10C14 8.89543 14.8954 8 16 8H32C33.1046 8 34 8.89543 34 10V12H14V10Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
-                <path d="M40 20V41C40 42.1046 39.1046 43 38 43H10C8.89543 43 8 42.1046 8 41V14C8 12.8954 8.89543 12 10 12H14V16H34V12H38C39.1046 12 40 12.8954 40 14V17" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M16 25H32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M16 33H32" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        `;
-
-        icon.onmouseover = () => icon.style.opacity = '1';
-        icon.onmouseout = () => icon.style.opacity = '0.7';
-
-        icon.onclick = (e) => {
-            e.stopPropagation();
-            const url = location.href.split('?')[0];
-            const CLIPBOARD_KEY = 'tmk_internal_clipboard';
-            const raw = localStorage.getItem(CLIPBOARD_KEY);
-            const currentItems = raw ? JSON.parse(raw) : [];
-            if (!currentItems.includes(url)) {
-                const merged = [...currentItems, url];
-                localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(merged));
-                navigator.clipboard.writeText(merged.join('\n')).catch(() => {});
-                showNotification(`Added current video to list.\nTotal: ${merged.length}`, '#4ecdc4');
-            } else {
-                showNotification("URL already in list.", "#ff6b6b");
-            }
-        };
-        return icon;
-    }
-
-    function injectVideoClipboardIcon() {
-        const avatarTargetSelector = '#one-column-item-0 > div > section[class*="SectionActionBarContainer"] > div[class*="DivAvatarActionItemContainer"]';
-        const avatarTarget = document.querySelector(avatarTargetSelector);
-        const existingAvatarIcon = document.getElementById('tmk-video-clipboard-icon');
-
-        if (!avatarTarget) {
-            if (existingAvatarIcon) existingAvatarIcon.remove();
-        } else if (!existingAvatarIcon) {
-            const icon = createClipboardIcon('tmk-video-clipboard-icon');
-            icon.style.marginBottom = '12px';
-            avatarTarget.parentNode.insertBefore(icon, avatarTarget);
-        }
-
-        const actionTargetSelector = 'div[data-e2e="browse-follow"]';
-        const actionTarget = document.querySelector(actionTargetSelector);
-        const existingActionIcon = document.getElementById('tmk-video-clipboard-icon-actions');
-
-        if (!actionTarget) {
-            if (existingActionIcon) existingActionIcon.remove();
-        } else if (!existingActionIcon) {
-            const icon = createClipboardIcon('tmk-video-clipboard-icon-actions');
-            icon.style.marginTop = '12px';
-            actionTarget.parentNode.insertBefore(icon, actionTarget.nextSibling);
-        }
-    }
-
-    const appObserver = new MutationObserver(() => {
-        if (!isContextValid()) {
-            appObserver.disconnect();
-            return;
-        }
-        injectStoryOptions();
-        injectVideoClipboardIcon();
-    });
-    appObserver.observe(document.body, { childList: true, subtree: true });
-    injectStoryOptions();
-    injectVideoClipboardIcon();
-
-    // Failsafe polling for SPA transitions
-    const videoPoll = setInterval(() => {
-        if (!isContextValid()) {
-            clearInterval(videoPoll);
-            return;
-        }
-        injectVideoClipboardIcon();
-    }, 1000);
 
     let response;
     if (isContextValid()) {
@@ -602,7 +460,18 @@
                 }
                 pollCount++;
                 
-                // 1. Check for the userscript element as a primary signal
+                // 1. Check for "Something went wrong" (case-insensitive) as a "hit"
+                const pageText = document.body.innerText;
+                if (pageText && /Something went wrong/i.test(pageText)) {
+                    console.log("Staggered Navigation: 'Something went wrong' detected! Stopping automation.");
+                    clearInterval(pollInterval);
+                    if (isContextValid()) {
+                        chrome.runtime.sendMessage({ type: "PLAY_SOUND", sound: "new_videos" });
+                    }
+                    return;
+                }
+
+                // 2. Check for the userscript element as a primary signal
                 const newCountElement = document.getElementById('tt-thumb-meta__new-count');
                 if (newCountElement && parseInt(newCountElement.textContent) > 0) {
                     console.log("Staggered Navigation: New videos found via userscript signal! Stopping automation.");
