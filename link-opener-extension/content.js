@@ -1061,6 +1061,11 @@ async function addCheckboxes() {
             suffix.textContent = ` [${dateStr}]`;
             link.parentNode.insertBefore(suffix, link.nextSibling);
         }
+
+        // Hide " #" suffix from display
+        if (link.textContent.includes(" #")) {
+            link.textContent = link.textContent.replace(" #", "");
+        }
     }
 }
 

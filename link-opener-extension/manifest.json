@@ -16,6 +16,10 @@
     {
       "matches": ["https://www.tiktok.com/*"],
       "js": ["tiktok_meta.js", "tiktok_ui.js", "stagger_nav.js"]
+    },
+    {
+      "matches": ["https://ssstiktok.dev/*"],
+      "js": ["ssstiktok_handler.js"]
     }
   ]
 }

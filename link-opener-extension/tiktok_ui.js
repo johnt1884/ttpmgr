@@ -70,7 +70,7 @@
             menu = document.createElement('div');
             menu.id = 'tmk-multi-select-menu';
             Object.assign(menu.style, {
-                position: 'fixed', top: '80px', right: '20px', zIndex: 99999,
+                position: 'fixed', top: '80px', right: '20px', zIndex: 100001,
                 background: 'rgba(0,0,0,0.85)', padding: '15px', borderRadius: '8px',
                 color: '#fff', fontSize: '14px', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                 display: 'flex', flexDirection: 'column', gap: '10px', width: '220px'
@@ -332,23 +332,34 @@
         const href = anchor.getAttribute('href');
         if (!href || href === '#' || href.startsWith('javascript:')) return;
 
-        // Don't block our own menu links or the extension bar if it existed there
-        if (e.target.closest('#tmk-multi-select-menu')) return;
+        // Don't block our own menu links or the extension bar
+        if (e.target.closest('#tmk-multi-select-menu, #link-batch-opener-bar')) return;
 
-        // If it's a video card link, and we have selection, we might want to toggle instead
+        // Determine if this is truly an external navigation or a video card click
+        // TikTok video cards are wrapped in an anchor that navigates to /video/id
+        const isInternalVideoLink = /\/@.+?\/(video|photo)\/\d+/.test(href);
         const card = anchor.closest('[data-e2e="user-post-item"]');
 
-        if (!confirm('You have videos selected. Are you sure you want to leave this page?')) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
+        // If it's an internal video link on the SAME profile page, we might want to toggle instead of navigate
+        if (card && isInternalVideoLink) {
+             // Let the native click proceed IF they confirm, otherwise toggle
+             if (!confirm('You have videos selected. Are you sure you want to view this video? (This will leave the profile page)')) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
 
-            if (card) {
                 const cb = card.querySelector('.tmk-video-checkbox');
                 if (cb) {
                     cb.checked = !cb.checked;
                     cb.dispatchEvent(new Event('change'));
                 }
-            }
+             }
+             return;
+        }
+
+        // External navigation or other link (e.g. profile logo, another user)
+        if (!confirm('You have videos selected. Are you sure you want to leave this page?')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
         }
     }, true); // Capture phase to preempt other handlers
 

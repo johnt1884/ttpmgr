@@ -27,7 +27,20 @@ function rand(min, max) {
 // -----------------------------
 // CORE LOGIC
 // -----------------------------
+function transformSpecialUrl(url) {
+    if (url.includes(" #")) {
+        const match = url.match(/@([^\/ #]+)/);
+        if (match) {
+            const username = match[1];
+            return `https://ssstiktok.dev/#username=${username}`;
+        }
+    }
+    return url;
+}
+
 async function openTabsSmart(urls) {
+    urls = urls.map(transformSpecialUrl);
+
     const [currentTab] = await chrome.tabs.query({
         active: true,
         currentWindow: true
@@ -85,6 +98,8 @@ let staggeredOpenerTabId = null;
 async function startStaggered(urls, openerTabId) {
     if (!urls || urls.length === 0) return;
     
+    urls = urls.map(transformSpecialUrl);
+
     const total = urls.length;
     const currentIndex = 1;
     staggeredQueue = [...urls];
