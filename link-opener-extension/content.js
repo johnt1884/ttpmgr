@@ -1062,9 +1062,30 @@ async function addCheckboxes() {
             link.parentNode.insertBefore(suffix, link.nextSibling);
         }
 
-        // Hide " #" suffix from display
-        if (link.textContent.includes(" #")) {
-            link.textContent = link.textContent.replace(" #", "");
+        // Special link handling: " #" suffix
+        const decodedHref = decodeURIComponent(link.href);
+        if (decodedHref.includes(" #")) {
+            // Hide from display (handle encoded space too)
+            link.textContent = link.textContent.replace(/(\s+|%20)#$/, "");
+
+            // Intercept manual click to transform URL
+            link.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const match = decodedHref.match(/@([^\/ #?]+)/);
+                if (match) {
+                    const username = match[1];
+                    window.open(`https://ssstiktok.dev/#username=${username}`, '_blank');
+                }
+            };
+
+            // Update checkbox data to transformed URL
+            if (cb) {
+                const match = decodedHref.match(/@([^\/ #?]+)/);
+                if (match) {
+                    cb.dataset.href = `https://ssstiktok.dev/#username=${match[1]}`;
+                }
+            }
         }
     }
 }
