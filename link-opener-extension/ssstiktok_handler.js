@@ -47,10 +47,14 @@
         navigator.clipboard.writeText(list.join('\n')).catch(() => {});
     }
 
+    let currentUsername = '';
+
     async function handleAutoSearch() {
         if (!location.hash.startsWith('#username=')) return;
         const username = location.hash.split('=')[1];
         if (!username) return;
+
+        currentUsername = username;
 
         const input = document.getElementById('s_input');
         const form = document.getElementById('search-form');
@@ -109,8 +113,19 @@
 
     async function injectControls() {
         const dlLinks = document.querySelectorAll('a.pro-dl-link');
-        const usernameLabel = document.querySelector('.profile-name'); // Try to find username on result page
-        const username = usernameLabel ? usernameLabel.textContent.trim().replace('@', '') : '';
+
+        // Try multiple ways to get the username
+        let username = currentUsername;
+        if (!username) {
+            const usernameLabel = document.querySelector('.profile-name');
+            if (usernameLabel) username = usernameLabel.textContent.trim().replace('@', '');
+        }
+        if (!username) {
+            const input = document.getElementById('s_input');
+            if (input && input.value && !input.value.includes('http')) {
+                username = input.value.trim();
+            }
+        }
 
         const res = await chrome.storage.local.get(SEEN_IDS_KEY);
         const seenIds = new Set(res[SEEN_IDS_KEY] || []);
